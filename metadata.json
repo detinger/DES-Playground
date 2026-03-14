@@ -1,0 +1,5 @@
+{
+  "name": "DES Playground",
+  "description": "An interactive learning tool for students to explore Discrete Event Simulation and Queueing Theory. Visualize M/M/c queues, adjust parameters in real-time, and compare simulated metrics against theoretical formulas.",
+  "requestFramePermissions": []
+}
