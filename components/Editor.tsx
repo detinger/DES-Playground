@@ -20,7 +20,7 @@ import { NodeData, DistributionType, DistributionParams } from '../types';
 import {
   PlayCircle, Server, LogOut, Settings, Play, Pause, RotateCcw,
   BarChart3, ShieldCheck, ChevronRight, ChevronLeft, ChevronsRight, ChevronsLeft,
-  Flag, Layers, GitCompare, Code2, Minimize2, Maximize2,
+  Flag, Layers, GitCompare, Code2,
 } from 'lucide-react';
 import { LineChart, BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { cn } from '../lib/utils';
@@ -59,14 +59,6 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
   const [selectedNode, setSelectedNode] = useState<Node<NodeData> | null>(null);
-  const [isCanvasCompact, setIsCanvasCompact] = useState(false);
-
-  useEffect(() => {
-    if (!reactFlowInstance) return;
-    const frame = requestAnimationFrame(() => reactFlowInstance.fitView({ padding: 0.2 }));
-    return () => cancelAnimationFrame(frame);
-  }, [isCanvasCompact, reactFlowInstance]);
-
   // Validation state
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
 
@@ -611,20 +603,9 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
           <div className="editor-component-hint">
             Drag nodes onto the canvas. Connect by dragging handles.
           </div>
-              <button
-                type="button"
-                className="ui-btn ui-btn--sm"
-                onClick={() => setIsCanvasCompact(compact => !compact)}
-                title={isCanvasCompact ? 'Expand canvas height' : 'Shrink canvas height'}
-                aria-controls="model-canvas"
-                aria-expanded={!isCanvasCompact}
-              >
-                {isCanvasCompact ? <Maximize2 size={14} /> : <Minimize2 size={14} />}
-                {isCanvasCompact ? 'Expand canvas' : 'Shrink canvas'}
-              </button>
         </div>
 
-        <div className="editor-canvas-area" style={{ height: isCanvasCompact ? 240 : 600 }}>
+        <div className="editor-canvas-area">
         {/* React Flow canvas */}
         <div id="model-canvas" style={{ flex: 1, position: 'relative', minWidth: 0 }} ref={reactFlowWrapper}>
           <ReactFlow
