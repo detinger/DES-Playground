@@ -5,7 +5,6 @@ import type {
   Distribution,
   Value,
   Condition,
-  NodeConfig,
 } from "./model";
 import type {
   EngineResult,
@@ -841,9 +840,6 @@ export function runProcessModel(
       measure(`${key}:cost`, `${n.name} · capacity cost`, cost, "$", true);
     }
     if (c.kind === "server") {
-      const capacity = c.resourceId
-        ? (nodes.get(c.resourceId)!.config as { capacity: number }).capacity
-        : c.capacity;
       measure(
         `${key}:utilization`,
         `${n.name} · utilization`,

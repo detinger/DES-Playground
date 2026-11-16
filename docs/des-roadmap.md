@@ -1,13 +1,13 @@
-# DES Modeler roadmap
+# Process Modeler roadmap
 
 Delivered in the current expansion:
-- Named browser model library, portable versioned JSON import/export, autosave and 100-step undo/redo.
+- Portable versioned JSON import/export, browser autosave and 100-step undo/redo.
 - Entity types, numeric attributes, structured assignments and nonpreemptive priority queues with FIFO ties.
 - Probability routes, grouped batch/unbatch and two-branch correlated joins, including nested forks.
 - One- or two-parameter sweeps, replication confidence intervals, sensitivity charts, target mean checks and CSV results.
 - Repeating resource shifts, capacity changes that let active work finish, prorated staffing costs and overtime reporting.
 
-These extend the separate Queue Modeler and DES Modeler, editable Inventory/Factory graphs, stores, process cycles, formal view, playback and shared Python/R exports.
+These extend the separate Queue Modeler and Process Modeler, editable Inventory/Factory graphs, stores, process cycles, formal view, playback and shared Python/R exports.
 
 Remaining capabilities:
 1. Finite queue capacity, balking, reneging and preemption.

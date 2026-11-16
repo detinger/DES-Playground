@@ -10,7 +10,7 @@ export function useModelHistory(
     past = useRef<Workspace[]>([]),
     future = useRef<Workspace[]>([]),
     restoring = useRef(false);
-  const [version, bump] = useState(0);
+  const [, bump] = useState(0);
   const dragging = workspace.nodes.some((n) => n.dragging);
   useEffect(() => {
     if (dragging) return;

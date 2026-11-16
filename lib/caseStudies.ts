@@ -18,7 +18,14 @@ export const CASE_STUDIES: ExampleModel[] = [
     assumptions: 'Service times have a standard deviation of 1 minute. Negative normal samples are rejected here. All queues start empty; capacity stays fixed during the day. The engine stops new arrivals at 540 min and drains admitted patients; output waiting times therefore include overtime.',
     experiment: ['Load and run the baseline; save it as Baseline.', 'Change Nurse capacity to 3 and run again. Inspect the Doctor queue.', 'Compare 3/4/2 with 4/5/2; consider the extra staffing cost and remaining waiting time.'],
     nodes: clinicNodes,
-    edges: clinicNodes.slice(0, -1).map((n, i) => ({ id: `clinic-edge-${i}`, source: n.id, target: clinicNodes[i + 1].id, animated: true })),
+    edges: clinicNodes.slice(0, -1).map((n, i) => ({
+      id: `clinic-edge-${i}`,
+      source: n.id,
+      target: clinicNodes[i + 1].id,
+      type: 'smoothstep',
+      animated: true,
+      style: { stroke: '#6366f1', strokeWidth: 2 },
+    })),
     config: { horizon: 540, warmup: 0, seed: 42, replications: 1 },
   },
   {
@@ -28,7 +35,7 @@ export const CASE_STUDIES: ExampleModel[] = [
     parameters: String.raw`Failure \(F\sim U(132,182)\) operating hours; repair \(R_t\sim U(4,10)\) hours; \(R=3\) repairers, \(S=20\) spares; \(T=2080\) working hours.`,
     expectedKpis: 'Availability, time-average spares, repair queue, total downtime and cost per eight-hour working day.',
     assumptions: 'Time advances in working hours (8 hours/day, 5 days/week); weekends are excluded. All 50 machines start new; spares do not fail while stored. Repairs and replacement requests use FIFO. Staff cost $3.75/hour each, spare capacity $30/day each, and downtime $20/machine-hour.',
-    experiment: ['Open DES Modeler and run 3 repairers and 20 spares; save a baseline.', 'Edit the Spare machines store, reduce initial stock, and compare availability and total cost.', 'Increase Repair crew capacity, run replications, and weigh staffing cost against downtime.'],
+    experiment: ['Open Process Modeler and run 3 repairers and 20 spares; export a JSON baseline.', 'Edit the Spare machines store, reduce initial stock, and compare availability and total cost.', 'Increase Repair crew capacity, run replications, and weigh staffing cost against downtime.'],
     nodes: FACTORY_NODES, edges: FACTORY_EDGES, config: { horizon: 2080, warmup: 0, seed: 0, replications: 1, unit: 'hour', stopMode: 'horizon' },
   },
   {

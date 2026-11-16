@@ -16,7 +16,7 @@ const nodeBase: React.CSSProperties = {
 };
 
 const selectedStyle: React.CSSProperties = {
-  borderColor: 'var(--primary)',
+  border: '1.5px solid var(--primary)',
   boxShadow: 'var(--focus-ring)',
 };
 

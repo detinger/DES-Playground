@@ -22,7 +22,7 @@ function pipeline(id: string, source: string, arrivals: DistributionParams, stag
   ];
   const edges = nodes.slice(1).map((node, i) => ({
     id: `${id}-e${i + 1}`, source: nodes[i].id, target: node.id,
-    animated: true, style: { stroke: '#6366f1', strokeWidth: 2 },
+    type: 'smoothstep', animated: true, style: { stroke: '#6366f1', strokeWidth: 2 },
   }));
   return { nodes, edges };
 }

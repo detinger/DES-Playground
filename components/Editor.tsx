@@ -1,17 +1,15 @@
 import FormalModel from './FormalModel';
 import { MathText } from './Math';
-import { createPortal } from 'react-dom';
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ReactFlow,
-  ReactFlowProvider,
   addEdge,
   applyNodeChanges,
   applyEdgeChanges,
   NodeChange,
   EdgeChange,
   Controls,
-  Background,
   Connection,
   Edge,
   Node,
@@ -22,18 +20,14 @@ import { NodeData, DistributionType, DistributionParams } from '../types';
 import {
   PlayCircle, Server, LogOut, Settings, Play, Pause, RotateCcw,
   BarChart3, ShieldCheck, ChevronRight, ChevronLeft, ChevronsRight, ChevronsLeft,
-  Flag, Layers, GitCompare, Code2,
+  ChevronUp, ChevronDown,
 } from 'lucide-react';
 import { LineChart, BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { cn } from '../lib/utils';
 import CodeExport from './CodeExport';
 import SimmerCodeExport from './SimmerCodeExport';
 import ValidationPanel from './ValidationPanel';
 import EventLog from './EventLog';
 import ReplicationsPanel from './ReplicationsPanel';
-import TheoryPanel from './TheoryPanel';
-import ComparisonPanel from './ComparisonPanel';
-import { Scenario, compareScenarios } from '../lib/scenarios';
 import { compileModel } from '../lib/compiler';
 import { validateModel } from '../lib/validator';
 import { ValidationResult } from '../lib/model';
@@ -49,26 +43,19 @@ let id = 4;
 const getId = () => `${id++}`;
 
 interface EditorProps {
-  headerActionsElement: HTMLDivElement | null;
   nodes: Node<NodeData>[];
   setNodes: React.Dispatch<React.SetStateAction<Node<NodeData>[]>>;
   edges: Edge[];
   setEdges: React.Dispatch<React.SetStateAction<Edge[]>>;
   exampleConfig?: Partial<RunConfig>;
+  rightPanelElement: HTMLDivElement | null;
 }
 
-export default function Editor({ headerActionsElement, nodes, setNodes, edges, setEdges, exampleConfig }: EditorProps) {
+export default function Editor({ nodes, setNodes, edges, setEdges, exampleConfig, rightPanelElement }: EditorProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const [canvasHeight, setCanvasHeight] = useState(600);
-  const canvasResize = useRef<{ pointerId: number; startY: number; startHeight: number } | null>(null);
-  const resizeCanvas = (height: number) => setCanvasHeight(Math.max(180, Math.min(1600, height)));
-  const finishCanvasResize = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (canvasResize.current?.pointerId !== event.pointerId) return;
-    canvasResize.current = null;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-  };
+  const [chartPaneHeight, setChartPaneHeight] = useState(320);
+  const [chartPaneVisible, setChartPaneVisible] = useState(true);
+  const chartPaneResize = useRef<{ pointerId: number; startY: number; startH: number } | null>(null);
 
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
   const [selectedNode, setSelectedNode] = useState<Node<NodeData> | null>(null);
@@ -102,15 +89,7 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
   const [isPlaying, setIsPlaying]         = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [runConfig, setRunConfig]         = useState<RunConfig>(DEFAULT_RUN_CONFIG);
-  const [lastCompiledModel, setLastCompiledModel] = useState<import('../lib/model').DesModel | null>(null);
-  const [baseline, setBaseline]       = useState<Scenario | null>(null);
-  const [alternative, setAlternative] = useState<Scenario | null>(null);
-  const [showExport, setShowExport]   = useState(false);
-  const exportPanelRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (showExport) exportPanelRef.current?.scrollIntoView({ block: 'start' });
-  }, [showExport]);
+  const [panelTab, setPanelTab]       = useState<"properties" | "metrics" | "events" | "formal" | "export">("properties");
 
   const handleRun = useCallback(() => {
     const model = compileModel(nodes, edges);
@@ -120,47 +99,17 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
     const output = runReplications(model, runConfig);
     setRunOutput(output);
     setRunResult(output.primary);
-    setLastCompiledModel(model);
     setPlaybackIndex(0);
     setIsPlaying(output.primary.trace.length > 1);
   }, [nodes, edges, runConfig]);
 
   const handleReset = useCallback(() => {
-    setShowExport(false);
     setRunResult(null);
     setRunOutput(null);
-    setLastCompiledModel(null);
     setPlaybackIndex(0);
     setIsPlaying(false);
     setNodes((nds: Node<NodeData>[]) => nds.map(n => ({ ...n, data: { ...n.data, simState: undefined } })));
   }, [setNodes]);
-
-  const saveScenario = useCallback((id: 'baseline' | 'alternative') => {
-    if (!runOutput || !lastCompiledModel) return;
-    const s: Scenario = {
-      id,
-      name: id === 'baseline' ? 'Baseline' : 'Alternative',
-      nodes: nodes.map(n => ({ ...n, data: { ...n.data, simState: undefined } })),
-      edges: [...edges],
-      config: { ...runConfig },
-      output: runOutput,
-      model: lastCompiledModel,
-      savedAt: Date.now(),
-    };
-    if (id === 'baseline') setBaseline(s); else setAlternative(s);
-  }, [nodes, edges, runConfig, runOutput, lastCompiledModel]);
-
-  const loadScenario = useCallback((s: Scenario) => {
-    setNodes(s.nodes);
-    setEdges(s.edges);
-    setRunConfig(s.config);
-    setRunOutput(s.output);
-    setRunResult(s.output.primary);
-    setLastCompiledModel(s.model);
-    setValidationResult(null);
-    setPlaybackIndex(s.output.primary.trace.length - 1);
-    setIsPlaying(false);
-  }, [setNodes, setEdges]);
 
   // Playback animation
   useEffect(() => {
@@ -185,7 +134,6 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
     setRunConfig(c => ({ ...c, ...exampleConfig }));
     setRunResult(null);
     setRunOutput(null);
-    setLastCompiledModel(null);
     setValidationResult(null);
     setPlaybackIndex(0);
     setIsPlaying(false);
@@ -207,6 +155,9 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
       },
     })));
   }, [playbackIndex, runResult, setNodes]);
+
+  useEffect(() => { if (selectedNode) setPanelTab("properties"); }, [selectedNode?.id]);
+  useEffect(() => { if (runResult) setPanelTab("metrics"); }, [runResult]);
 
   // Pre-computed minute-by-minute chart data for the full run (queue + utilization)
   const totalCapacity = useMemo(
@@ -271,19 +222,6 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
     [nodes],
   );
 
-  // Scenario comparison (only when both snapshots exist)
-  const comparison = useMemo(
-    () => baseline && alternative ? compareScenarios(baseline, alternative) : null,
-    [baseline, alternative],
-  );
-
-  // Playback-derived node states (for the server visualizer)
-  const currentNodeStates = useMemo(() => {
-    if (!runResult?.trace.length) return {} as Record<string, any>;
-    const ev = runResult.trace[Math.min(playbackIndex, runResult.trace.length - 1)];
-    return ev.state.nodeStates;
-  }, [runResult, playbackIndex]);
-
   const onNodesChange = useCallback(
     (changes: NodeChange<Node<NodeData>>[]) => setNodes((nds: Node<NodeData>[]) => applyNodeChanges(changes, nds)),
     [setNodes]
@@ -295,7 +233,7 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
   );
 
   const onConnect = useCallback(
-    (params: Connection | Edge) => setEdges((eds: Edge[]) => addEdge<Edge>({ ...params, animated: true, style: { stroke: '#6366f1', strokeWidth: 2 } }, eds)),
+    (params: Connection | Edge) => setEdges((eds: Edge[]) => addEdge<Edge>({ ...params, type: 'smoothstep', animated: true, style: { stroke: '#6366f1', strokeWidth: 2 } }, eds)),
     [setEdges],
   );
 
@@ -404,34 +342,18 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
   const labelStyle: React.CSSProperties = { color: 'var(--text-muted)' };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {headerActionsElement && createPortal(
-        <button
-          onClick={() => setShowExport(s => !s)}
-          className={`ui-btn${showExport ? ' ui-btn--primary' : ''}`}
-          title={lastCompiledModel ? 'Toggle Python / R code export' : 'Run the model to enable Python / R code export'}
-          disabled={!lastCompiledModel}
-          aria-expanded={showExport}
-          aria-controls={showExport ? 'model-code-export' : undefined}
-          style={!lastCompiledModel ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
-        >
-          <Code2 size={16} /> {showExport ? 'Hide Export' : 'Export Code'}
-        </button>,
-        headerActionsElement,
-      )}
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
 
       {/* Controls bar */}
       <div style={{
         background: 'var(--bg-elevated)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius)',
-        padding: '10px 16px',
+        borderBottom: '1px solid var(--border)',
+        padding: '8px 16px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         gap: 12,
         flexWrap: 'wrap',
-        boxShadow: 'var(--shadow-sm)',
       }}>
         {/* Run config */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -473,7 +395,7 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
             className="ui-btn"
             style={validationResult?.hasErrors
               ? { opacity: 0.4, cursor: 'not-allowed' }
-              : { background: 'var(--primary)', borderColor: 'var(--primary)', color: 'var(--text-on-primary)' }
+              : { background: 'var(--primary)', border: '1px solid var(--primary)', color: 'var(--text-on-primary)' }
             }
             title={validationResult?.hasErrors ? 'Fix errors before running' : 'Compute simulation and play from the beginning'}
           >
@@ -507,7 +429,7 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
               disabled={runResult.trace.length < 2}
               className="ui-btn"
               style={isPlaying
-                ? { background: 'var(--error-soft)', borderColor: 'var(--error)', color: 'var(--error)' }
+                ? { background: 'var(--error-soft)', border: '1px solid var(--error)', color: 'var(--error)' }
                 : {}
               }
             >
@@ -544,33 +466,6 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
             <RotateCcw size={15} />
           </button>
 
-          {/* Scenario save buttons — shown after a run */}
-          {runOutput && (<>
-            <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 2px' }} />
-            <button
-              onClick={() => saveScenario('baseline')}
-              className="ui-btn"
-              title="Save current run as Baseline for comparison"
-              style={baseline ? { borderColor: 'var(--chart-1)', color: 'var(--chart-1)' } : {}}
-            >
-              <Flag size={13} />
-              {baseline ? 'Baseline ✓' : 'Save Baseline'}
-            </button>
-            <button
-              onClick={() => saveScenario('alternative')}
-              className="ui-btn"
-              title="Save current run as Alternative for comparison"
-              style={alternative ? { borderColor: 'var(--chart-3)', color: 'var(--chart-3)' } : {}}
-            >
-              <Layers size={13} />
-              {alternative ? 'Alt ✓' : 'Save Alt'}
-            </button>
-            {baseline && alternative && (
-              <span style={{ fontSize: 11, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <GitCompare size={12} /> Compare ↓
-              </span>
-            )}
-          </>)}
 
         </div>
       </div>
@@ -583,15 +478,9 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
         />
       )}
 
-      {/* Editor workspace */}
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius)',
-        overflow: 'hidden',
-        background: 'var(--canvas-bg)',
-      }}>
+      {/* Modeler workspace */}
+      <div className="modeler-workspace" style={{ marginTop: 0 }}>
+      <div className="modeler-canvas-col">
         {/* Node palette */}
         <div className="editor-component-toolbar">
           <div className="editor-component-palette" role="group" aria-label="Components">
@@ -634,440 +523,338 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
           </div>
         </div>
 
-        <div className="editor-canvas-area" style={{ height: canvasHeight }}>
-        {/* React Flow canvas */}
-        <div id="model-canvas" style={{ flex: 1, position: 'relative', minWidth: 0 }} ref={reactFlowWrapper}>
-          <ReactFlow
-            proOptions={{ hideAttribution: true }}
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            onInit={setReactFlowInstance}
-            onDrop={onDrop}
-            onDragOver={onDragOver}
-            onNodeClick={onNodeClick}
-            onPaneClick={onPaneClick}
-            nodeTypes={nodeTypes}
-            fitView
-            style={{ background: 'var(--canvas-bg)' }}
-          >
-            <Background color="var(--border)" gap={20} size={1} />
-            <Controls />
-
-          </ReactFlow>
+        <div className="editor-canvas-area">
+          <div id="model-canvas" style={{ flex: 1, position: 'relative', minWidth: 0 }} ref={reactFlowWrapper}>
+            <ReactFlow
+              proOptions={{ hideAttribution: true }}
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              onInit={setReactFlowInstance}
+              onDrop={onDrop}
+              onDragOver={onDragOver}
+              onNodeClick={onNodeClick}
+              onPaneClick={onPaneClick}
+              nodeTypes={nodeTypes}
+              fitView
+              style={{ background: 'var(--canvas-bg)' }}
+            >
+              <Controls />
+            </ReactFlow>
+          </div>
         </div>
 
-        {/* Properties panel */}
-        {selectedNode && (
-          <div style={{
-            width: 280,
-            background: 'var(--bg-elevated)',
-            borderLeft: '1px solid var(--border)',
-            padding: 14,
-            overflowY: 'auto',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 0,
-          }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              marginBottom: 14, paddingBottom: 10,
-              borderBottom: '1px solid var(--border)',
-            }}>
-              <Settings size={15} style={{ color: 'var(--primary)' }} />
-              <span style={{ fontWeight: 650, fontSize: 14, color: 'var(--text)' }}>Properties</span>
-            </div>
+      </div>{/* end modeler-canvas-col */}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div>
-                <label className={labelCls} style={labelStyle}>Name</label>
-                <input
-                  type="text"
-                  value={selectedNode.data.label}
-                  onChange={(e) => updateNodeData(selectedNode.id, { label: e.target.value })}
-                  className={inputCls}
-                  style={inputStyle}
-                />
-              </div>
+      </div>{/* end modeler-workspace */}
 
-              {selectedNode.data.type === 'server' && (
-                <div>
-                  <label className={labelCls} style={labelStyle}>Capacity (servers)</label>
-                  <input
-                    type="number" min="1"
-                    value={selectedNode.data.capacity || 1}
-                    onChange={(e) => updateNodeData(selectedNode.id, { capacity: parseInt(e.target.value) || 1 })}
-                    className={inputCls}
-                    style={inputStyle}
-                  />
-                </div>
-              )}
-
-              {(selectedNode.data.type === 'source' || selectedNode.data.type === 'server') && selectedNode.data.distribution && (
-                <div style={{ paddingTop: 10, borderTop: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: 12, fontWeight: 650, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
-                    {selectedNode.data.type === 'source' ? 'Inter-arrival time' : 'Service time'}
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <div>
-                      <label className={labelCls} style={labelStyle}>Distribution</label>
-                      <select
-                        value={selectedNode.data.distribution.type}
-                        onChange={(e) => updateDistribution(selectedNode.id, { type: e.target.value as DistributionType })}
-                        className={inputCls}
-                        style={inputStyle}
-                      >
-                        <option value="exponential">Exponential</option>
-                        <option value="normal">Normal</option>
-                        <option value="uniform">Uniform</option>
-                        <option value="triangular">Triangular</option>
-                        <option value="constant">Constant</option>
-                      </select>
-                    </div>
-
-                    {selectedNode.data.distribution.type === 'exponential' && (
-                      <div>
-                        <label className={labelCls} style={labelStyle}>Mean (minutes)</label>
-                        <input type="number" step="0.1" value={selectedNode.data.distribution.mean || 1}
-                          onChange={(e) => updateDistribution(selectedNode.id, { mean: parseFloat(e.target.value) || 0 })}
-                          className={inputCls} style={inputStyle} />
-                      </div>
-                    )}
-                    {selectedNode.data.distribution.type === 'normal' && (<>
-                      <div>
-                        <label className={labelCls} style={labelStyle}>Mean</label>
-                        <input type="number" step="0.1" value={selectedNode.data.distribution.mean || 1}
-                          onChange={(e) => updateDistribution(selectedNode.id, { mean: parseFloat(e.target.value) || 0 })}
-                          className={inputCls} style={inputStyle} />
-                      </div>
-                      <div>
-                        <label className={labelCls} style={labelStyle}>Std deviation</label>
-                        <input type="number" step="0.1" value={selectedNode.data.distribution.stdDev || 0.5}
-                          onChange={(e) => updateDistribution(selectedNode.id, { stdDev: parseFloat(e.target.value) || 0 })}
-                          className={inputCls} style={inputStyle} />
-                      </div>
-                    </>)}
-                    {selectedNode.data.distribution.type === 'uniform' && (<>
-                      <div>
-                        <label className={labelCls} style={labelStyle}>Min</label>
-                        <input type="number" step="0.1" value={selectedNode.data.distribution.min || 0}
-                          onChange={(e) => updateDistribution(selectedNode.id, { min: parseFloat(e.target.value) || 0 })}
-                          className={inputCls} style={inputStyle} />
-                      </div>
-                      <div>
-                        <label className={labelCls} style={labelStyle}>Max</label>
-                        <input type="number" step="0.1" value={selectedNode.data.distribution.max || 10}
-                          onChange={(e) => updateDistribution(selectedNode.id, { max: parseFloat(e.target.value) || 0 })}
-                          className={inputCls} style={inputStyle} />
-                      </div>
-                    </>)}
-                    {selectedNode.data.distribution.type === 'triangular' && (<>
-                      <div>
-                        <label className={labelCls} style={labelStyle}>Min</label>
-                        <input type="number" step="0.1" value={selectedNode.data.distribution.min || 0}
-                          onChange={(e) => updateDistribution(selectedNode.id, { min: parseFloat(e.target.value) || 0 })}
-                          className={inputCls} style={inputStyle} />
-                      </div>
-                      <div>
-                        <label className={labelCls} style={labelStyle}>Mode</label>
-                        <input type="number" step="0.1" value={selectedNode.data.distribution.mode || 5}
-                          onChange={(e) => updateDistribution(selectedNode.id, { mode: parseFloat(e.target.value) || 0 })}
-                          className={inputCls} style={inputStyle} />
-                      </div>
-                      <div>
-                        <label className={labelCls} style={labelStyle}>Max</label>
-                        <input type="number" step="0.1" value={selectedNode.data.distribution.max || 10}
-                          onChange={(e) => updateDistribution(selectedNode.id, { max: parseFloat(e.target.value) || 0 })}
-                          className={inputCls} style={inputStyle} />
-                      </div>
-                    </>)}
-                    {selectedNode.data.distribution.type === 'constant' && (
-                      <div>
-                        <label className={labelCls} style={labelStyle}>Value</label>
-                        <input type="number" step="0.1" value={selectedNode.data.distribution.value || 5}
-                          onChange={(e) => updateDistribution(selectedNode.id, { value: parseFloat(e.target.value) || 0 })}
-                          className={inputCls} style={inputStyle} />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              <div style={{ paddingTop: 12, marginTop: 4 }}>
-                <button
-                  onClick={() => { setNodes((nds: Node<NodeData>[]) => nds.filter(n => n.id !== selectedNode.id)); setSelectedNode(null); }}
-                  className="ui-btn"
-                  style={{ width: '100%', justifyContent: 'center', background: 'var(--error-soft)', borderColor: 'var(--error)', color: 'var(--error)' }}
-                >
-                  Delete node
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+      {/* Results ribbon — always visible */}
+      <div style={{
+        height: 32, flexShrink: 0,
+        background: 'var(--bg-elevated)',
+        borderTop: '1px solid var(--border)',
+        display: 'flex', alignItems: 'center',
+        paddingLeft: 12, gap: 8,
+      }}>
+        {runResult && chartPaneVisible && (
           <div
-            className="editor-canvas-resize-handle"
-            role="separator"
-            tabIndex={0}
-            aria-label="Resize model canvas"
-            aria-controls="model-canvas"
-            aria-orientation="horizontal"
-            aria-valuemin={180}
-            aria-valuemax={1600}
-            aria-valuenow={canvasHeight}
-            aria-valuetext={`${canvasHeight} pixels high`}
-            title="Drag to resize canvas, or use Up and Down arrow keys"
-            onPointerDown={event => {
-              if (event.button !== 0) return;
-              event.preventDefault();
-              event.stopPropagation();
-              event.currentTarget.focus();
-              event.currentTarget.setPointerCapture(event.pointerId);
-              canvasResize.current = { pointerId: event.pointerId, startY: event.clientY, startHeight: canvasHeight };
+            style={{ width: 32, height: 3, background: 'var(--border)', borderRadius: 2, cursor: 'ns-resize', flexShrink: 0 }}
+            onPointerDown={(e) => {
+              chartPaneResize.current = { pointerId: e.pointerId, startY: e.clientY, startH: chartPaneHeight };
+              (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
             }}
-            onPointerMove={event => {
-              const drag = canvasResize.current;
-              if (!drag || drag.pointerId !== event.pointerId) return;
-              resizeCanvas(drag.startHeight + event.clientY - drag.startY);
+            onPointerMove={(e) => {
+              const d = chartPaneResize.current;
+              if (!d || d.pointerId !== e.pointerId) return;
+              setChartPaneHeight(Math.max(150, Math.min(700, d.startH - (e.clientY - d.startY))));
             }}
-            onPointerUp={finishCanvasResize}
-            onPointerCancel={finishCanvasResize}
-            onLostPointerCapture={() => { canvasResize.current = null; }}
-            onKeyDown={event => {
-              if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
-              event.preventDefault();
-              event.stopPropagation();
-              if (event.key === 'Home') resizeCanvas(180);
-              else if (event.key === 'End') resizeCanvas(1600);
-              else resizeCanvas(canvasHeight + (event.key === 'ArrowDown' ? 20 : -20));
-            }}
-          />
-        </div>
-      </div>
-
-      <FormalModel model={formalModel} />
-
-      {/* Server state visualizer (playback-driven) */}
-      <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '18px 20px', boxShadow: 'var(--shadow-sm)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <span style={{ fontWeight: 650, fontSize: 15, color: 'var(--text)' }}>
-            {runResult ? 'Playback' : 'Station State'}
-          </span>
-          {runResult && (
-            <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-              t = {currentT.toFixed(2)}
-            </span>
-          )}
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24, overflowX: 'auto' }}>
-          {nodes.filter((n: Node<NodeData>) => n.data.type === 'server').map((node: Node<NodeData>) => {
-            const ns = currentNodeStates[node.id];
-            const queueLength  = ns?.queueLength  ?? 0;
-            const busyServers  = ns?.busyServers   ?? 0;
-            const capacity     = node.data.capacity ?? 1;
-
-            return (
-              <div key={node.id} style={{ display: 'flex', alignItems: 'center', gap: 24, paddingBottom: 20, borderBottom: '1px solid var(--border)' }}>
-                <div style={{ width: 110, textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{ fontWeight: 650, fontSize: 13, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={node.data.label}>{node.data.label}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-subtle)' }}>cap: {capacity}</div>
-                </div>
-
-                {/* Queue */}
-                <div style={{ flex: 1, minWidth: 160, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, borderRight: '2px dashed var(--border)', paddingRight: 20, position: 'relative' }}>
-                  <div style={{ position: 'absolute', top: -18, right: 20, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>Queue ({queueLength})</div>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end', width: '100%' }}>
-                    {Array.from({ length: Math.min(queueLength, 20) }).map((_, i) => (
-                      <div key={i} style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--primary)', opacity: 0.8 }} />
-                    ))}
-                    {queueLength > 20 && (
-                      <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: 'var(--text-muted)' }}>
-                        +{queueLength - 20}
-                      </div>
-                    )}
-                    {queueLength === 0 && (
-                      <div style={{ fontSize: 12, color: 'var(--text-subtle)', fontStyle: 'italic', height: 20, display: 'flex', alignItems: 'center' }}>Empty</div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Server slots */}
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', maxWidth: 360, position: 'relative', paddingTop: 14 }}>
-                  <div style={{ position: 'absolute', top: 0, left: 0, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>Servers</div>
-                  {Array.from({ length: capacity }).map((_, idx) => {
-                    const isBusy = idx < busyServers;
-                    return (
-                      <div
-                        key={idx}
-                        style={{
-                          width: 56, height: 56,
-                          borderRadius: 'var(--radius)',
-                          border: `2px solid ${isBusy ? 'var(--success)' : 'var(--border)'}`,
-                          background: isBusy ? 'var(--success-soft)' : 'var(--bg-subtle)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          transition: 'border-color 200ms, background 200ms',
-                        }}
-                      >
-                        {isBusy
-                          ? <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--success)' }} />
-                          : <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>Idle</span>
-                        }
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-          {nodes.filter((n: Node<NodeData>) => n.data.type === 'server').length === 0 && (
-            <div style={{ textAlign: 'center', color: 'var(--text-subtle)', fontStyle: 'italic', padding: '24px 0' }}>
-              Add a Server node to the canvas, then Run.
-            </div>
-          )}
-          {!runResult && nodes.filter((n: Node<NodeData>) => n.data.type === 'server').length > 0 && (
-            <div style={{ textAlign: 'center', color: 'var(--text-subtle)', fontStyle: 'italic', padding: '12px 0', fontSize: 13 }}>
-              Click Run to compute the simulation and enable playback.
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Performance Metrics */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '18px 20px', boxShadow: 'var(--shadow-sm)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-            <BarChart3 size={16} style={{ color: 'var(--chart-3)' }} />
-            <span style={{ fontWeight: 650, fontSize: 15, color: 'var(--text)' }}>Performance Metrics</span>
-            {runResult && (
-              <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-subtle)', fontFamily: 'var(--font-mono)' }}>
-                {runResult.runDurationMs.toFixed(0)} ms compute · seed {runResult.seed}
-              </span>
-            )}
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 12 }}>
-            {[
-              { label: 'Mean wait time (Wq)',   value: fmt(m?.avgWaitTime),    unit: 'min' },
-              { label: 'Mean sojourn (W)',       value: fmt(m?.avgSojournTime), unit: 'min' },
-              { label: 'Total departures',       value: m ? String(m.totalDepartures) : '—', unit: 'entities' },
-              { label: 'Throughput',             value: m ? m.throughput.toFixed(3) : '—',   unit: '/min' },
-              { label: 'Avg queue length (Lq)',  value: fmt(m?.avgQueueLength), unit: 'entities' },
-              { label: 'Server utilisation (ρ̂)', value: m ? (m.avgUtilization * 100).toFixed(1) : '—', unit: '%' },
-              { label: 'Peak queue length',      value: m ? String(m.maxQueueLength) : '—',   unit: 'entities' },
-              { label: 'Total arrivals',         value: m ? String(m.totalArrivals) : '—',    unit: 'entities' },
-            ].map(kpi => (
-              <div key={kpi.label} className="kpi-tile">
-                <div className="kpi-label"><MathText>{kpi.label}</MathText></div>
-                <div className="kpi-value">{kpi.value}</div>
-                <div className="kpi-unit">{kpi.unit}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Queue length + utilisation dual-axis chart */}
-        <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '18px 20px', height: 320, display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-sm)' }}>
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ fontWeight: 650, fontSize: 15, color: 'var(--text)' }}>Queue length & utilisation over time</div>
-            <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 2 }}>
-              {runResult
-                ? `Trace up to t = ${currentT.toFixed(1)} min · step through events to scrub`
-                : 'Run the simulation to see queue dynamics'}
-            </div>
-          </div>
-          <div style={{ flex: 1, minHeight: 0 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
-                <XAxis dataKey="time" stroke="var(--chart-axis)" tickFormatter={(v: number) => `${v.toFixed(0)}`} tick={{ fontSize: 11 }} minTickGap={20} label={{ value: 'min', position: 'insideRight', offset: -4, fontSize: 10, fill: 'var(--chart-axis)' }} />
-                <YAxis yAxisId="left" stroke="var(--chart-1)" allowDecimals={false} tick={{ fontSize: 11 }} label={{ value: 'Queue', angle: -90, position: 'insideLeft', fontSize: 10, fill: 'var(--chart-1)' }} />
-                <YAxis yAxisId="right" orientation="right" stroke="var(--chart-3)" domain={[0, 100]} tickFormatter={(v: number) => `${v}%`} tick={{ fontSize: 11 }} label={{ value: 'Util %', angle: 90, position: 'insideRight', fontSize: 10, fill: 'var(--chart-3)' }} />
-                <Tooltip
-                  contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 6, fontSize: 12 }}
-                  formatter={(v: any, name: string) => name === 'Util %' ? [`${Number(v).toFixed(1)}%`, name] : [v, name]}
-                  labelFormatter={(l: any) => `t = ${Number(l).toFixed(1)} min`}
-                />
-                <Legend iconSize={10} wrapperStyle={{ fontSize: 11, paddingTop: 4 }} />
-                <Line yAxisId="left"  type="stepAfter" dataKey="queueLength" name="Queue" stroke="var(--chart-1)" strokeWidth={2} dot={false} isAnimationActive={false} />
-                <Line yAxisId="right" type="stepAfter" dataKey="utilPct" name="Util %" stroke="var(--chart-3)" strokeWidth={1.5} strokeDasharray="4 2" dot={false} isAnimationActive={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Event log */}
-        {runResult && (
-          <EventLog
-            trace={runResult.trace}
-            playbackIndex={playbackIndex}
-            nodeNames={nodeNames}
+            onPointerUp={() => { chartPaneResize.current = null; }}
+            onPointerCancel={() => { chartPaneResize.current = null; }}
           />
         )}
+        <button
+          onClick={() => runResult && setChartPaneVisible(v => !v)}
+          disabled={!runResult}
+          title={!runResult ? 'Run a simulation to see results' : chartPaneVisible ? 'Hide results' : 'Show results'}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 4,
+            border: 'none', background: 'none', cursor: runResult ? 'pointer' : 'default',
+            color: runResult ? 'var(--primary)' : 'var(--text-subtle)',
+            fontSize: 12, fontWeight: 650, padding: '0 4px',
+            fontFamily: 'inherit',
+          }}
+        >
+          {chartPaneVisible && runResult ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+          Results
+        </button>
+      </div>
 
-        {/* Wait-time histogram */}
-        {waitHistogram.length > 0 && (
-          <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '18px 20px', height: 260, display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-sm)' }}>
-            <div style={{ marginBottom: 10 }}>
-              <div style={{ fontWeight: 650, fontSize: 15, color: 'var(--text)' }}>Wait-time distribution</div>
-              <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 2 }}>
-                Entities with arrival ≥ warm-up {runConfig.warmup > 0 ? `(${runConfig.warmup} min)` : ''}
-              </div>
+      {/* Results pane */}
+      {runResult && chartPaneVisible && (
+        <div style={{ height: chartPaneHeight, flexShrink: 0, overflow: 'hidden', display: 'flex', background: 'var(--bg-elevated)', borderTop: '1px solid var(--border)' }}>
+          <div style={{ flex: 2, display: 'flex', flexDirection: 'column', padding: '10px 16px', minWidth: 0 }}>
+            <div style={{ marginBottom: 6, flexShrink: 0 }}>
+              <div style={{ fontWeight: 650, fontSize: 12, color: 'var(--text)' }}>Queue &amp; utilisation over time</div>
+              <div style={{ fontSize: 11, color: 'var(--text-subtle)' }}>{`t = ${currentT.toFixed(1)} min`}</div>
             </div>
             <div style={{ flex: 1, minHeight: 0 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={waitHistogram} margin={{ top: 4, right: 10, left: 0, bottom: 0 }}>
+                <LineChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
-                  <XAxis dataKey="label" stroke="var(--chart-axis)" tick={{ fontSize: 10 }} minTickGap={15} label={{ value: 'Wait time (min)', position: 'insideBottom', offset: -2, fontSize: 10, fill: 'var(--chart-axis)' }} />
-                  <YAxis stroke="var(--chart-axis)" allowDecimals={false} tick={{ fontSize: 10 }} />
-                  <Tooltip
-                    contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 6, fontSize: 12 }}
-                    formatter={(v: any) => [v, 'Count']}
-                    labelFormatter={(l: any) => `Wq ≥ ${l} min`}
-                  />
-                  <Bar dataKey="count" name="Count" fill="var(--chart-2)" radius={[2, 2, 0, 0]} isAnimationActive={false} />
-                </BarChart>
+                  <XAxis dataKey="time" stroke="var(--chart-axis)" tickFormatter={(v: number) => `${v.toFixed(0)}`} tick={{ fontSize: 10 }} minTickGap={20} />
+                  <YAxis yAxisId="left" stroke="var(--chart-1)" allowDecimals={false} tick={{ fontSize: 10 }} />
+                  <YAxis yAxisId="right" orientation="right" stroke="var(--chart-3)" domain={[0, 100]} tickFormatter={(v: number) => `${v}%`} tick={{ fontSize: 10 }} />
+                  <Tooltip contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 6, fontSize: 11 }}
+                    formatter={(v: any, name: string) => name === 'Util %' ? [`${Number(v).toFixed(1)}%`, name] : [v, name]}
+                    labelFormatter={(l: any) => `t = ${Number(l).toFixed(1)} min`} />
+                  <Legend iconSize={10} wrapperStyle={{ fontSize: 10, paddingTop: 4 }} />
+                  <Line yAxisId="left"  type="stepAfter" dataKey="queueLength" name="Queue" stroke="var(--chart-1)" strokeWidth={2} dot={false} isAnimationActive={false} />
+                  <Line yAxisId="right" type="stepAfter" dataKey="utilPct" name="Util %" stroke="var(--chart-3)" strokeWidth={1.5} strokeDasharray="4 2" dot={false} isAnimationActive={false} />
+                </LineChart>
               </ResponsiveContainer>
             </div>
           </div>
-        )}
+          {waitHistogram.length > 0 && (
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '10px 16px', borderLeft: '1px solid var(--border)', minWidth: 0, maxWidth: '33.33%' }}>
+              <div style={{ marginBottom: 6, flexShrink: 0 }}>
+                <div style={{ fontWeight: 650, fontSize: 12, color: 'var(--text)' }}>Wait-time distribution</div>
+                <div style={{ fontSize: 11, color: 'var(--text-subtle)' }}>
+                  Arrivals ≥ warm-up {runConfig.warmup > 0 ? `(${runConfig.warmup} min)` : ''}
+                </div>
+              </div>
+              <div style={{ flex: 1, minHeight: 0 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={waitHistogram} margin={{ top: 4, right: 10, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+                    <XAxis dataKey="label" stroke="var(--chart-axis)" tick={{ fontSize: 10 }} minTickGap={15} />
+                    <YAxis stroke="var(--chart-axis)" allowDecimals={false} tick={{ fontSize: 10 }} />
+                    <Tooltip contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 6, fontSize: 11 }}
+                      formatter={(v: any) => [v, 'Count']} labelFormatter={(l: any) => `Wq ≥ ${l} min`} />
+                    <Bar dataKey="count" name="Count" fill="var(--chart-2)" radius={[2, 2, 0, 0]} isAnimationActive={false} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
-        {/* Replication summary (shown for multi-rep runs) */}
-        {runOutput && runOutput.reps.length > 1 && (
-          <ReplicationsPanel output={runOutput} />
-        )}
+      {rightPanelElement && createPortal(
+        <>
+          <div className="panel-tabs">
+          {(["properties", "metrics", "events", "formal", "export"] as const).map((tab) => (
+            <button
+              key={tab}
+              className="panel-tab"
+              aria-selected={panelTab === tab}
+              onClick={() => setPanelTab(tab)}
+            >
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </button>
+          ))}
+        </div>
+        <div className="panel-body">
 
-        {/* M/M/c theory comparison */}
-        {lastCompiledModel && (
-          <TheoryPanel
-            model={lastCompiledModel}
-            simMean={displayMetrics}
-            horizon={runConfig.horizon}
-            warmup={runConfig.warmup}
-          />
-        )}
+          {/* Properties tab */}
+          {panelTab === "properties" && (
+            selectedNode ? (
+              <div className="panel-pad" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 10, borderBottom: '1px solid var(--border)', marginBottom: 4 }}>
+                  <Settings size={15} style={{ color: 'var(--primary)' }} />
+                  <span style={{ fontWeight: 650, fontSize: 14, color: 'var(--text)' }}>Properties</span>
+                </div>
+                <div>
+                  <label className={labelCls} style={labelStyle}>Name</label>
+                  <input type="text" value={selectedNode.data.label}
+                    onChange={(e) => updateNodeData(selectedNode.id, { label: e.target.value })}
+                    className={inputCls} style={inputStyle} />
+                </div>
+                {selectedNode.data.type === 'server' && (
+                  <div>
+                    <label className={labelCls} style={labelStyle}>Capacity (servers)</label>
+                    <input type="number" min="1" value={selectedNode.data.capacity || 1}
+                      onChange={(e) => updateNodeData(selectedNode.id, { capacity: parseInt(e.target.value) || 1 })}
+                      className={inputCls} style={inputStyle} />
+                  </div>
+                )}
+                {(selectedNode.data.type === 'source' || selectedNode.data.type === 'server') && selectedNode.data.distribution && (
+                  <div style={{ paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: 12, fontWeight: 650, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
+                      {selectedNode.data.type === 'source' ? 'Inter-arrival time' : 'Service time'}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div>
+                        <label className={labelCls} style={labelStyle}>Distribution</label>
+                        <select value={selectedNode.data.distribution.type}
+                          onChange={(e) => updateDistribution(selectedNode.id, { type: e.target.value as DistributionType })}
+                          className={inputCls} style={inputStyle}>
+                          <option value="exponential">Exponential</option>
+                          <option value="normal">Normal</option>
+                          <option value="uniform">Uniform</option>
+                          <option value="triangular">Triangular</option>
+                          <option value="constant">Constant</option>
+                        </select>
+                      </div>
+                      {selectedNode.data.distribution.type === 'exponential' && (
+                        <div>
+                          <label className={labelCls} style={labelStyle}>Mean (minutes)</label>
+                          <input type="number" step="0.1" value={selectedNode.data.distribution.mean || 1}
+                            onChange={(e) => updateDistribution(selectedNode.id, { mean: parseFloat(e.target.value) || 0 })}
+                            className={inputCls} style={inputStyle} />
+                        </div>
+                      )}
+                      {selectedNode.data.distribution.type === 'normal' && (<>
+                        <div>
+                          <label className={labelCls} style={labelStyle}>Mean</label>
+                          <input type="number" step="0.1" value={selectedNode.data.distribution.mean || 1}
+                            onChange={(e) => updateDistribution(selectedNode.id, { mean: parseFloat(e.target.value) || 0 })}
+                            className={inputCls} style={inputStyle} />
+                        </div>
+                        <div>
+                          <label className={labelCls} style={labelStyle}>Std deviation</label>
+                          <input type="number" step="0.1" value={selectedNode.data.distribution.stdDev || 0.5}
+                            onChange={(e) => updateDistribution(selectedNode.id, { stdDev: parseFloat(e.target.value) || 0 })}
+                            className={inputCls} style={inputStyle} />
+                        </div>
+                      </>)}
+                      {selectedNode.data.distribution.type === 'uniform' && (<>
+                        <div>
+                          <label className={labelCls} style={labelStyle}>Min</label>
+                          <input type="number" step="0.1" value={selectedNode.data.distribution.min || 0}
+                            onChange={(e) => updateDistribution(selectedNode.id, { min: parseFloat(e.target.value) || 0 })}
+                            className={inputCls} style={inputStyle} />
+                        </div>
+                        <div>
+                          <label className={labelCls} style={labelStyle}>Max</label>
+                          <input type="number" step="0.1" value={selectedNode.data.distribution.max || 10}
+                            onChange={(e) => updateDistribution(selectedNode.id, { max: parseFloat(e.target.value) || 0 })}
+                            className={inputCls} style={inputStyle} />
+                        </div>
+                      </>)}
+                      {selectedNode.data.distribution.type === 'triangular' && (<>
+                        <div>
+                          <label className={labelCls} style={labelStyle}>Min</label>
+                          <input type="number" step="0.1" value={selectedNode.data.distribution.min || 0}
+                            onChange={(e) => updateDistribution(selectedNode.id, { min: parseFloat(e.target.value) || 0 })}
+                            className={inputCls} style={inputStyle} />
+                        </div>
+                        <div>
+                          <label className={labelCls} style={labelStyle}>Mode</label>
+                          <input type="number" step="0.1" value={selectedNode.data.distribution.mode || 5}
+                            onChange={(e) => updateDistribution(selectedNode.id, { mode: parseFloat(e.target.value) || 0 })}
+                            className={inputCls} style={inputStyle} />
+                        </div>
+                        <div>
+                          <label className={labelCls} style={labelStyle}>Max</label>
+                          <input type="number" step="0.1" value={selectedNode.data.distribution.max || 10}
+                            onChange={(e) => updateDistribution(selectedNode.id, { max: parseFloat(e.target.value) || 0 })}
+                            className={inputCls} style={inputStyle} />
+                        </div>
+                      </>)}
+                      {selectedNode.data.distribution.type === 'constant' && (
+                        <div>
+                          <label className={labelCls} style={labelStyle}>Value</label>
+                          <input type="number" step="0.1" value={selectedNode.data.distribution.value || 5}
+                            onChange={(e) => updateDistribution(selectedNode.id, { value: parseFloat(e.target.value) || 0 })}
+                            className={inputCls} style={inputStyle} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                <div style={{ paddingTop: 12, marginTop: 4 }}>
+                  <button
+                    onClick={() => { setNodes((nds: Node<NodeData>[]) => nds.filter(n => n.id !== selectedNode.id)); setSelectedNode(null); }}
+                    className="ui-btn"
+                    style={{ width: '100%', justifyContent: 'center', background: 'var(--error-soft)', border: '1px solid var(--error)', color: 'var(--error)' }}
+                  >
+                    Delete node
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="panel-pad">
+                <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Select a node to view its properties.</p>
+              </div>
+            )
+          )}
 
-        {/* Scenario comparison */}
-        {comparison && baseline && alternative && (
-          <ComparisonPanel
-            baseline={baseline}
-            alternative={alternative}
-            comparison={comparison}
-            onLoadBaseline={() => loadScenario(baseline)}
-            onLoadAlternative={() => loadScenario(alternative)}
-          />
-        )}
+          {/* Metrics tab */}
+          {panelTab === "metrics" && (
+            runResult ? (
+              <div className="panel-pad" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                    <BarChart3 size={15} style={{ color: 'var(--chart-3)' }} />
+                    <span style={{ fontWeight: 650, fontSize: 13, color: 'var(--text)' }}>Performance Metrics</span>
+                    <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-subtle)', fontFamily: 'var(--font-mono)' }}>
+                      {runResult.runDurationMs.toFixed(0)} ms · seed {runResult.seed}
+                    </span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
+                    {[
+                      { label: 'Mean wait time (Wq)',   value: fmt(m?.avgWaitTime),    unit: 'min' },
+                      { label: 'Mean sojourn (W)',       value: fmt(m?.avgSojournTime), unit: 'min' },
+                      { label: 'Total departures',       value: m ? fmt(m.totalDepartures) : '—', unit: 'entities' },
+                      { label: 'Throughput',             value: m ? fmt(m.throughput) : '—',   unit: '/min' },
+                      { label: 'Avg queue length (Lq)',  value: fmt(m?.avgQueueLength), unit: 'entities' },
+                      { label: 'Server utilisation (ρ̂)', value: m ? (m.avgUtilization * 100).toFixed(1) : '—', unit: '%' },
+                      { label: 'Peak queue length',      value: m ? fmt(m.maxQueueLength) : '—',   unit: 'entities' },
+                      { label: 'Total arrivals',         value: m ? fmt(m.totalArrivals) : '—',    unit: 'entities' },
+                    ].map(kpi => (
+                      <div key={kpi.label} className="kpi-tile">
+                        <div className="kpi-label"><MathText>{kpi.label}</MathText></div>
+                        <div className="kpi-value">{kpi.value}</div>
+                        <div className="kpi-unit">{kpi.unit}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {runOutput && runOutput.reps.length > 1 && (
+                  <ReplicationsPanel output={runOutput} />
+                )}
+              </div>
+            ) : (
+              <div className="panel-pad">
+                <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Run the simulation to see metrics.</p>
+              </div>
+            )
+          )}
 
-        {showExport && lastCompiledModel && (
-          <div id="model-code-export" ref={exportPanelRef} style={{ display: 'flex', flexDirection: 'column', gap: 20, marginTop: 8 }}>
-            <CodeExport model={lastCompiledModel} config={runConfig} />
-            <SimmerCodeExport model={lastCompiledModel} config={runConfig} />
+          {/* Events tab */}
+          {panelTab === "events" && (
+            runResult ? (
+              <div style={{ height: '100%' }}>
+                <EventLog trace={runResult.trace} playbackIndex={playbackIndex} nodeNames={nodeNames} />
+              </div>
+            ) : (
+              <div className="panel-pad">
+                <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Run the model to see the event log.</p>
+              </div>
+            )
+          )}
+
+          {/* Formal tab */}
+          {panelTab === "formal" && (
+            <div className="panel-pad">
+              <FormalModel model={formalModel} />
+            </div>
+          )}
+
+          {/* Export tab */}
+          {panelTab === "export" && (
+            <div className="panel-pad" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <CodeExport model={formalModel} config={runConfig} />
+              <SimmerCodeExport model={formalModel} config={runConfig} />
+            </div>
+          )}
+
           </div>
-        )}
-
-      </div>
+        </>,
+        rightPanelElement
+      )}
     </div>
   );
 }

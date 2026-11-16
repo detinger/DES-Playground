@@ -15,8 +15,9 @@ import Home from "./components/Home";
 import { clearAppData, readPreference, savePreference } from "./lib/appStorage";
 import {
   House,
-  LayoutDashboard,
-  Share2,
+  Activity,
+  Workflow,
+  Network,
   BookOpen,
   Trophy,
   FlaskConical,
@@ -24,6 +25,8 @@ import {
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
 } from "lucide-react";
 import { Node, Edge } from "@xyflow/react";
 import { NodeData } from "./types";
@@ -68,11 +71,11 @@ const NAV_ITEMS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: "challenges", label: "Challenges", icon: <Trophy size={18} /> },
   {
     id: "playground",
-    label: "M/M/c Visualizer",
-    icon: <LayoutDashboard size={18} />,
+    label: "M/M/c Modeler",
+    icon: <Activity size={18} />,
   },
-  { id: "editor", label: "Queue Modeler", icon: <Share2 size={18} /> },
-  { id: "des", label: "DES Modeler", icon: <Share2 size={18} /> },
+  { id: "editor", label: "Queue Modeler", icon: <Network size={18} /> },
+  { id: "des", label: "Process Modeler", icon: <Workflow size={18} /> },
 ];
 
 const TAB_TITLES: Record<TabId, { title: string; subtitle: string }> = {
@@ -90,11 +93,11 @@ const TAB_TITLES: Record<TabId, { title: string; subtitle: string }> = {
     subtitle: `Test your DES knowledge — ${CHALLENGES.length} assessed problems`,
   },
   playground: {
-    title: "M/M/c Visualizer",
+    title: "M/M/c Modeler",
     subtitle: "Interactive simulation with live charts",
   },
   des: {
-    title: "DES Modeler",
+    title: "Process Modeler",
     subtitle: "Model processes, resources, inventory and repeating cycles",
   },
   editor: {
@@ -142,6 +145,7 @@ const INITIAL_EDGES: Edge[] = [
     source: "1",
     target: "2",
     animated: true,
+    type: "smoothstep",
     style: { stroke: "var(--primary)", strokeWidth: 2 },
   },
   {
@@ -149,13 +153,14 @@ const INITIAL_EDGES: Edge[] = [
     source: "2",
     target: "3",
     animated: true,
+    type: "smoothstep",
     style: { stroke: "var(--primary)", strokeWidth: 2 },
   },
 ];
 
 function App() {
-  const [editorActionsElement, setEditorActionsElement] =
-    useState<HTMLDivElement | null>(null);
+  const [rightPanelOpen, setRightPanelOpen] = useState(false);
+  const [rightPanelEl, setRightPanelEl] = useState<HTMLDivElement | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>("home");
   const [theme, setTheme] = useState<Theme>(() =>
     readPreference("des-theme") === "dark" ? "dark" : "light",
@@ -175,7 +180,6 @@ function App() {
   );
   const [restored] = useState(readAutosave);
   const [desName, setDesName] = useState(restored?.name ?? "Inventory");
-  const [autosaveStatus, setAutosaveStatus] = useState("");
   const [desNodes, setDesNodes] = useState<Node<NodeData>[]>(
     () => restored?.nodes ?? structuredClone(INVENTORY_NODES),
   );
@@ -212,11 +216,8 @@ function App() {
   useEffect(() => {
     try {
       writeAutosave(desWorkspace);
-      setAutosaveStatus("Workspace autosaved in this browser.");
-    } catch {
-      setAutosaveStatus(
-        "Autosave paused: check numeric settings or browser storage. Save or export after correcting the settings.",
-      );
+    } catch (error) {
+      console.error("Could not autosave the process workspace.", error);
     }
   }, [desName, desNodes, desEdges, desConfig]);
   useEffect(() => {
@@ -364,7 +365,18 @@ function App() {
             <div className="toolbar-subtitle">{subtitle}</div>
           </div>
 
-          <div className="toolbar-actions" ref={setEditorActionsElement}>
+          <div className="toolbar-actions">
+            {(activeTab === "editor" || activeTab === "des" || activeTab === "playground") && (
+              <button
+                className="icon-btn"
+                onClick={() => setRightPanelOpen((o) => !o)}
+                title={rightPanelOpen ? "Close panel" : "Open panel"}
+                aria-label={rightPanelOpen ? "Close panel" : "Open panel"}
+                aria-pressed={rightPanelOpen}
+              >
+                {rightPanelOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
+              </button>
+            )}
             {activeTab !== "editor" && (
               <button
                 className="icon-btn"
@@ -386,16 +398,10 @@ function App() {
           </div>
         </div>
 
-        <main className="app-content" id="main-content" key={activeTab}>
+        <main className={`app-content${(activeTab === "editor" || activeTab === "des" || activeTab === "playground") ? " app-content--editor" : ""}`} id="main-content" key={activeTab}>
           {activeTab === "home" && (
             <Home
               onNavigate={navigate}
-              nodeCount={nodes.length}
-              edgeCount={edges.length}
-              theme={theme}
-              onThemeChange={changeTheme}
-              collapsed={collapsed}
-              onCollapsedChange={changeCollapsed}
               onClearData={handleClearData}
             />
           )}
@@ -420,34 +426,47 @@ function App() {
             />
           )}
           {activeTab === "playground" && (
-            <Simulator headerActionsElement={editorActionsElement} />
+            <Simulator rightPanelElement={rightPanelEl} />
           )}
           {activeTab === "des" && (
             <DESModeler
               name={desName}
               setName={setDesName}
               history={desHistory}
-              autosaveStatus={autosaveStatus}
               nodes={desNodes}
               setNodes={setDesNodes}
               edges={desEdges}
               setEdges={setDesEdges}
               config={desConfig}
               setConfig={setDesConfig}
+              rightPanelElement={rightPanelEl}
             />
           )}
           {activeTab === "editor" && (
             <Editor
-              headerActionsElement={editorActionsElement}
               nodes={nodes}
               setNodes={setNodes}
               edges={edges}
               setEdges={setEdges}
               exampleConfig={exampleConfig}
+              rightPanelElement={rightPanelEl}
             />
           )}
         </main>
       </div>
+
+      {/* Global right panel — only on workspace tabs */}
+      {(activeTab === "editor" || activeTab === "des" || activeTab === "playground") && (
+        <aside
+          className={`app-right-panel${rightPanelOpen ? " is-open" : ""}`}
+          aria-label="Properties and tools"
+        >
+          <div
+            ref={setRightPanelEl}
+            style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}
+          />
+        </aside>
+      )}
     </div>
   );
 }

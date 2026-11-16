@@ -10,9 +10,12 @@ import {
   shiftModel,
   node,
   edge,
-  model,
 } from "./fixtures/desFeatures";
-import { DEFAULT_RUN_CONFIG, runSimulation } from "../lib/engine";
+import {
+  ciForValues,
+  DEFAULT_RUN_CONFIG,
+  runSimulation,
+} from "../lib/engine";
 import { validateProcessModel } from "../lib/processValidation";
 import {
   documentWorkspace,
@@ -20,8 +23,6 @@ import {
   parseModelDocument,
   writeAutosave,
   readAutosave,
-  saveModel,
-  readLibrary,
 } from "../lib/modelLibrary";
 import {
   modelParameters,
@@ -145,6 +146,7 @@ Object.defineProperty(globalThis, "localStorage", {
     removeItem: (k: string) => memory.delete(k),
   },
 });
+let savedFirst: ReturnType<typeof workspaceDocument> | undefined;
 for (const [, m] of featureModels) {
   const doc = {
     format: "des-playground" as const,
@@ -156,24 +158,23 @@ for (const [, m] of featureModels) {
   };
   const workspace = documentWorkspace(parseModelDocument(JSON.stringify(doc)));
   const roundtrip = workspaceDocument(workspace);
+  savedFirst ??= roundtrip;
   assert.deepEqual(
     runSimulation(roundtrip.model, cfg).measurements,
     runSimulation(m, cfg).measurements,
   );
   writeAutosave(workspace);
   assert.equal(readAutosave()?.name, m.name);
-  saveModel(roundtrip);
 }
-assert.equal(readLibrary().length, featureModels.length);
-const savedFirst = readLibrary()[0];
-const storedBefore = JSON.stringify(readLibrary());
+assert(savedFirst);
+const storedBefore = localStorage.getItem("des-model-autosave");
 const originalSet = localStorage.setItem;
 localStorage.setItem = () => {
   throw new Error("Quota exceeded");
 };
-assert.throws(() => saveModel(savedFirst), /Quota/);
+assert.throws(() => writeAutosave(documentWorkspace(savedFirst)), /Quota/);
 localStorage.setItem = originalSet;
-assert.equal(JSON.stringify(readLibrary()), storedBefore);
+assert.equal(localStorage.getItem("des-model-autosave"), storedBefore);
 const direct = structuredClone(shiftModel);
 direct.edges = direct.edges.filter((e) => e.kind === "entityFlow");
 const directDoc = { ...savedFirst, model: direct, config: cfg };
@@ -182,7 +183,7 @@ assert.deepEqual(
     .measurements,
   runSimulation(direct, cfg).measurements,
 );
-const legacy = workspaceDocument(documentWorkspace(readLibrary()[0]));
+const legacy = workspaceDocument(documentWorkspace(savedFirst));
 (legacy.model as any).schemaVersion = 2;
 assert.equal(parseModelDocument(JSON.stringify(legacy)).model.schemaVersion, 3);
 for (const config of [
@@ -199,6 +200,12 @@ for (const config of [
 }
 assert.deepEqual(parseSweepValues("1, 2, 2, 3"), [1, 2, 3]);
 assert.throws(() => parseSweepValues("1,,2"));
+const ci12 = ciForValues(Array.from({ length: 12 }, (_, i) => i + 1));
+close(ci12.lower, 4.20914201345386);
+close(ci12.upper, 8.79085798654614);
+const ci32 = ciForValues(Array.from({ length: 32 }, (_, i) => i + 1));
+close(ci32.lower, 13.1178495717092);
+close(ci32.upper, 19.8821504282907);
 async function experiments() {
   const p = modelParameters(shiftModel).find(
     (p) => p.path.join(".") === "schedule.intervals.0.capacity",
@@ -216,6 +223,47 @@ async function experiments() {
     (shiftModel.nodes.find((n) => n.id === "crew")!.config as any).schedule
       .intervals[0].capacity,
     1,
+  );
+  const cost = modelParameters(shiftModel).find(
+    (parameter) => parameter.path.join(".") === "costPerUnit",
+  )!;
+  const progress: [number, number][] = [];
+  const combinations = await runSweep(
+    shiftModel,
+    { ...cfg, replications: 2, seed: 42 },
+    [
+      { parameterId: p.id, values: [1, 2] },
+      { parameterId: cost.id, values: [10, 20] },
+    ],
+    { progress: (done, total) => progress.push([done, total]) },
+  );
+  assert.equal(combinations.length, 4);
+  assert.deepEqual(
+    combinations.map((result) => result.metrics["crew:cost"].mean),
+    [60, 120, 120, 240],
+  );
+  assert(
+    combinations.every(
+      (result) => result.seeds.join(",") === "42,1042",
+    ),
+  );
+  assert.deepEqual(progress.at(-1), [8, 8]);
+  assert.match(sweepCSV(combinations), /42;1042/);
+  await assert.rejects(
+    runSweep(shiftModel, cfg, [
+      { parameterId: p.id, values: [1] },
+      { parameterId: p.id, values: [2] },
+    ]),
+    /different parameters/,
+  );
+  await assert.rejects(
+    runSweep(shiftModel, { ...cfg, replications: 11 }, [
+      {
+        parameterId: p.id,
+        values: Array.from({ length: 100 }, (_, i) => i + 1),
+      },
+    ]),
+    /1,000 total runs/,
   );
   const controller = new AbortController();
   await assert.rejects(

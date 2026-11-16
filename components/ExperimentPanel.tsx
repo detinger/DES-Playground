@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   LineChart,
   Line,
@@ -125,8 +125,7 @@ export default function ExperimentPanel({
     ]),
   );
   return (
-    <details className="des-experiments">
-      <summary>Parameter experiments</summary>
+    <div className="des-experiments">
       <p>
         Compare one or two numeric parameters across all combinations. Runs use
         the current horizon, warm-up and replication count, with the same seed
@@ -281,10 +280,10 @@ export default function ExperimentPanel({
                       {r.parameters.map((p, j) => (
                         <td key={j}>{p.value}</td>
                       ))}
-                      <td>{ci?.mean.toFixed(3)}</td>
+                      <td>{ci?.mean.toFixed(2)}</td>
                       <td>
                         {ci?.n > 1
-                          ? `${ci.lower.toFixed(3)} – ${ci.upper.toFixed(3)}`
+                          ? `${ci.lower.toFixed(2)} – ${ci.upper.toFixed(2)}`
                           : "Requires ≥2 replications"}
                       </td>
                       <td>
@@ -306,6 +305,6 @@ export default function ExperimentPanel({
           </div>
         </>
       )}
-    </details>
+    </div>
   );
 }

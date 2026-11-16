@@ -27,26 +27,29 @@ const simple = (
   position: { x, y },
   data: { label, type: data.type!, ...data },
 });
-const link = (source: string, target: string, sourceHandle = "out"): Edge => ({
-  id: `${source}-${sourceHandle}-${target}`,
-  source,
-  target,
-  sourceHandle,
-  targetHandle: ["store", "resource"].includes(sourceHandle)
-    ? "association"
-    : "in",
-  label: sourceHandle === "out" ? undefined : sourceHandle,
-  style: ["store", "resource"].includes(sourceHandle)
-    ? { strokeDasharray: "6 4", stroke: "#a78bfa" }
-    : undefined,
-});
+const link = (source: string, target: string, sourceHandle = "out"): Edge => {
+  const isAssoc = ["store", "resource"].includes(sourceHandle);
+  return {
+    id: `${source}-${sourceHandle}-${target}`,
+    source,
+    target,
+    sourceHandle,
+    targetHandle: isAssoc ? "association" : "in",
+    label: sourceHandle === "out" ? undefined : sourceHandle,
+    type: "smoothstep",
+    animated: !isAssoc,
+    style: isAssoc
+      ? { strokeDasharray: "6 4", stroke: "#a78bfa" }
+      : { stroke: "var(--primary)", strokeWidth: 2 },
+  };
+};
 export const INVENTORY_NODES: Node<NodeData>[] = [
-  simple("demand", "Customer demand", 0, 100, {
+  simple("demand", "Customer demand", 7.58, 100.42, {
     type: "source",
     distribution: { type: "exponential", mean: 0.2 },
     quantityDistribution: { kind: "discreteUniform", min: 1, max: 4 },
   }),
-  block("sales", "Fulfill demand", 240, 100, {
+  block("sales", "Fulfill demand", 241.47, 91.15, {
     kind: "stock",
     storeId: "inventory",
     operation: "fulfill",
@@ -55,7 +58,7 @@ export const INVENTORY_NODES: Node<NodeData>[] = [
     unitRevenue: 100,
     waitingCost: 0,
   }),
-  block("reorder", "Reorder needed?", 480, 100, {
+  block("reorder", "Reorder needed?", 457, 100, {
     kind: "decision",
     conditions: [
       {
@@ -70,7 +73,7 @@ export const INVENTORY_NODES: Node<NodeData>[] = [
       },
     ],
   }),
-  block("order", "Place replenishment order", 720, 100, {
+  block("order", "Place replenishment order", 721, -18, {
     kind: "signal",
     quantity: {
       kind: "subtract",
@@ -78,9 +81,8 @@ export const INVENTORY_NODES: Node<NodeData>[] = [
       right: { kind: "stock", nodeId: "inventory" },
     },
   }),
-  simple("customers-done", "Customers leave", 960, 100, { type: "sink" }),
-  // Purchase at placement; the delivery carries the fixed order quantity.
-  block("purchase", "Purchase batch", 720, 330, {
+  simple("customers-done", "Customers leave", 1258, 55.53, { type: "sink" }),
+  block("purchase", "Purchase batch", 1069.05, 187.42, {
     kind: "stock",
     storeId: "purchased",
     operation: "put",
@@ -89,12 +91,12 @@ export const INVENTORY_NODES: Node<NodeData>[] = [
     unitRevenue: 0,
     waitingCost: 0,
   }),
-  simple("delivery", "Delivery lead time", 960, 330, {
+  simple("delivery", "Delivery lead time", 1301.58, 187.53, {
     type: "server",
     capacity: 1,
     distribution: { type: "constant", value: 2 },
   }),
-  block("receive", "Receive delivery", 1200, 330, {
+  block("receive", "Receive delivery", 1520.58, 188, {
     kind: "stock",
     storeId: "inventory",
     operation: "put",
@@ -103,21 +105,21 @@ export const INVENTORY_NODES: Node<NodeData>[] = [
     unitRevenue: 0,
     waitingCost: 0,
   }),
-  simple("orders-done", "Orders complete", 1440, 330, { type: "sink" }),
-  block("inventory", "Inventory stock", 240, -120, {
+  simple("orders-done", "Orders complete", 1748.37, 196.85, { type: "sink" }),
+  block("inventory", "Inventory stock", 240.87, 318.47, {
     kind: "store",
     initial: 30,
     holdingCost: 2,
     fixedCost: 0,
     costPeriod: 1,
   }),
-  block("order-gate", "One outstanding order", 960, 550, {
+  block("order-gate", "One outstanding order", 1357.19, 395.85, {
     kind: "resource",
     capacity: 1,
     costPerUnit: 0,
     costPeriod: 1,
   }),
-  block("purchased", "Cumulative purchased units", 720, 550, {
+  block("purchased", "Cumulative purchased units", 964.85, 395.73, {
     kind: "store",
     initial: 0,
     holdingCost: 0,
@@ -141,21 +143,21 @@ export const INVENTORY_EDGES: Edge[] = [
   link("receive", "orders-done"),
 ];
 export const FACTORY_NODES: Node<NodeData>[] = [
-  block("positions", "Operating positions", 0, 100, {
+  block("positions", "Operating positions", -66.03, 315.93, {
     kind: "population",
     count: 50,
     quantity: 1,
   }),
-  block("operating", "Operating until failure", 240, 100, {
+  block("operating", "Operating until failure", 174.86, 239.19, {
     kind: "delay",
     distribution: { kind: "uniform", min: 132, max: 182 },
     populationId: "positions",
   }),
-  block("failure", "Failure · send machine to repair", 480, 100, {
+  block("failure", "Failure · send machine to repair", 259.61, 31.30, {
     kind: "signal",
     quantity: constant(1),
   }),
-  block("replace", "Wait for replacement", 720, 100, {
+  block("replace", "Wait for replacement", 642.71, -45.44, {
     kind: "stock",
     storeId: "spares",
     operation: "take",
@@ -164,12 +166,12 @@ export const FACTORY_NODES: Node<NodeData>[] = [
     unitRevenue: 0,
     waitingCost: 20,
   }),
-  simple("repair", "Repair machine", 480, 350, {
+  simple("repair", "Repair machine", 508.55, 347.32, {
     type: "server",
     capacity: 3,
     distribution: { type: "uniform", min: 4, max: 10 },
   }),
-  block("return", "Return repaired machine", 720, 350, {
+  block("return", "Return repaired machine", 659.33, 201.88, {
     kind: "stock",
     storeId: "spares",
     operation: "put",
@@ -178,15 +180,15 @@ export const FACTORY_NODES: Node<NodeData>[] = [
     unitRevenue: 0,
     waitingCost: 0,
   }),
-  simple("repair-done", "Repair task complete", 960, 350, { type: "sink" }),
-  block("spares", "Spare machines", 960, 100, {
+  simple("repair-done", "Repair task complete", 992.12, 386.58, { type: "sink" }),
+  block("spares", "Spare machines", 1054.58, 118.74, {
     kind: "store",
     initial: 20,
     holdingCost: 0,
     fixedCost: 30,
     costPeriod: 8,
   }),
-  block("crew", "Repair crew", 480, 570, {
+  block("crew", "Repair crew", 509.44, 461.14, {
     kind: "resource",
     capacity: 3,
     costPerUnit: 30,

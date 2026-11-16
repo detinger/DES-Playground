@@ -1,4 +1,3 @@
-import React from "react";
 import type { DesModel } from "../lib/model";
 import { BLOCK_LABELS, describeRules } from "../lib/processNotation";
 import { distributionTex } from "../lib/formalModel";

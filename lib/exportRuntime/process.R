@@ -1,5 +1,6 @@
 # Generated model interpreter. A simmer trajectory drives the ordered event
 # calendar, with completion/process/arrival priorities matching the browser.
+for (.pkg in c("simmer","jsonlite","ggplot2")) if (!requireNamespace(.pkg,quietly=TRUE)) install.packages(.pkg)
 library(simmer)
 library(jsonlite)
 `%or%` <- function(a,b) if (is.null(a)) b else a
@@ -225,3 +226,35 @@ ts<-c(12.706,4.303,3.182,2.776,2.571,2.447,2.365,2.306,2.262,2.228,2.179,2.131,2
 n<-length(reps);idx<-which(n-1<=dfs);critical<-if(length(idx))ts[idx[1]]else 1.96
 summary<-setNames(lapply(names(reps[[1]]),function(k){v<-vapply(reps,function(r)r[[k]],0);m<-mean(v);s<-if(n>1)sd(v)else 0;half<-critical*s/sqrt(n);list(mean=m,std=s,lower=m-half,upper=m+half,n=n)}),names(reps[[1]]))
 cat(toJSON(list(unit=MODEL$unit,replications=reps,summary=summary),auto_unbox=TRUE,digits=15),"\n")
+# ── Visualisation (ggplot2) ──────────────────────────────────────────────────
+tryCatch({
+  library(ggplot2)
+  safe_mean<-function(key){x<-summary[[key]];if(is.null(x))0 else x$mean}
+  util_rows<-do.call(rbind,Filter(Negate(is.null),lapply(MODEL$nodes,function(n){
+    if(!n$config$kind %in% c("server","resource"))return(NULL)
+    key<-paste0(n$id,":utilization");if(is.null(summary[[key]]))return(NULL)
+    data.frame(name=n$name,utilisation=summary[[key]]$mean,stringsAsFactors=FALSE)
+  })))
+  base_name<-gsub(" ","_",MODEL$name)
+  if(!is.null(util_rows)&&nrow(util_rows)>0){
+    p1<-ggplot(util_rows,aes(x=utilisation,y=reorder(name,utilisation)))+
+      geom_col(fill="#4f8ef7")+
+      geom_vline(xintercept=80,colour="#f59e0b",linetype="dashed",linewidth=0.8)+
+      geom_text(aes(label=sprintf("%.1f%%",utilisation)),hjust=-0.15,size=3.2)+
+      xlim(0,112)+labs(title="Resource Utilisation",x="Utilisation (%)",y=NULL)+
+      theme_minimal(base_size=11)
+    print(p1)
+    ggsave(paste0(base_name,"_utilisation.png"),p1,width=8,height=max(3,nrow(util_rows)*0.6+1.5),dpi=150)
+  }
+  times_df<-data.frame(metric=c("Avg wait","Avg service"),
+    value=c(safe_mean("avgWaitTime"),safe_mean("avgServiceTime")),stringsAsFactors=FALSE)
+  p2<-ggplot(times_df,aes(x=metric,y=value,fill=metric))+
+    geom_col(show.legend=FALSE)+
+    scale_fill_manual(values=c("#4c8cbf","#e07b54"))+
+    geom_text(aes(label=sprintf("%.2f",value)),vjust=-0.4,size=3.5)+
+    labs(title="Entity Times",x=NULL,y=paste0("Time (",MODEL$unit,"s)"))+
+    theme_minimal(base_size=11)
+  print(p2)
+  ggsave(paste0(base_name,"_times.png"),p2,width=5,height=4,dpi=150)
+  cat("Charts saved.\n")
+},error=function(e)cat("ggplot2 error:",conditionMessage(e),"\n"))

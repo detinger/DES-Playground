@@ -20,7 +20,6 @@ export interface SavedModel {
   model: DesModel;
   config: RunConfig;
 }
-export const MODEL_LIBRARY_KEY = "des-model-library";
 export const AUTOSAVE_KEY = "des-model-autosave";
 export function cleanWorkspace(w: Workspace): Workspace {
   return {
@@ -229,24 +228,6 @@ export function documentWorkspace(doc: SavedModel): Workspace {
           : { strokeDasharray: "6 4", stroke: "#a78bfa" },
     })),
   };
-}
-export function readLibrary(): SavedModel[] {
-  const raw = localStorage.getItem(MODEL_LIBRARY_KEY);
-  if (!raw) return [];
-  const list = JSON.parse(raw);
-  if (!Array.isArray(list))
-    throw new Error(
-      "Saved model library could not be read. Export your current model before resetting app data.",
-    );
-  return list.map((x) => parseModelDocument(JSON.stringify(x)));
-}
-export function saveModel(doc: SavedModel) {
-  doc = parseModelDocument(JSON.stringify(doc));
-  const list = readLibrary();
-  const at = list.findIndex((x) => x.id === doc.id);
-  if (at < 0) list.push(doc);
-  else list[at] = doc;
-  localStorage.setItem(MODEL_LIBRARY_KEY, JSON.stringify(list));
 }
 export function readAutosave(): Workspace | null {
   try {

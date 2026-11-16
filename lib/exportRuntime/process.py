@@ -239,4 +239,44 @@ def summarize(reps):
 
 if __name__=='__main__':
     reps=[run_model(MODEL,CONFIG,(CONFIG['seed']+i*1000) % 4294967296) for i in range(CONFIG['replications'])]
-    print(json.dumps(dict(unit=MODEL['unit'],replications=reps,summary=summarize(reps)),ensure_ascii=False))
+    summary=summarize(reps)
+    print(json.dumps(dict(unit=MODEL['unit'],replications=reps,summary=summary),ensure_ascii=False))
+    try:
+        import matplotlib.pyplot as plt,matplotlib.gridspec as gs_mod
+        unit=MODEL.get('unit','unit')
+        util_data=[(n['name'],summary.get(f"{n['id']}:utilization",{}).get('mean',0))
+                   for n in MODEL['nodes'] if n['config']['kind'] in('server','resource')
+                   and f"{n['id']}:utilization" in summary]
+        fig=plt.figure(figsize=(13,max(4,len(util_data)*0.55+2)))
+        fig.suptitle(f"{MODEL['name']} — Simulation Results"
+                     f" ({CONFIG['replications']} rep{'s' if CONFIG['replications']>1 else ''})",
+                     fontweight='bold',fontsize=12)
+        gspec=gs_mod.GridSpec(1,3,figure=fig,wspace=0.35)
+        ax1=fig.add_subplot(gspec[0,0:2]);ax2=fig.add_subplot(gspec[0,2])
+        if util_data:
+            names_u,vals_u=zip(*util_data);yr=range(len(names_u))
+            ax1.barh(list(yr),list(vals_u),color='#4f8ef7',zorder=2)
+            ax1.set_yticks(list(yr));ax1.set_yticklabels(list(names_u),fontsize=9)
+            ax1.set_xlim(0,112);ax1.set_xlabel('Utilisation (%)');ax1.set_title('Resource Utilisation')
+            ax1.axvline(80,color='#f59e0b',linestyle='--',linewidth=1,label='80% threshold',zorder=3)
+            for yi,v in zip(yr,vals_u):ax1.text(v+1,yi,f'{v:.1f}%',va='center',fontsize=8)
+            ax1.legend(fontsize=8);ax1.grid(axis='x',alpha=0.3)
+        else:
+            ax1.text(0.5,0.5,'No server/resource data',ha='center',va='center',
+                     transform=ax1.transAxes,color='grey',fontsize=10)
+            ax1.set_title('Resource Utilisation')
+        wt=summary.get('avgWaitTime',{}).get('mean',0)
+        st=summary.get('avgServiceTime',{}).get('mean',0)
+        ax2.bar(['Avg wait','Avg service'],[wt,st],color=['#e07b54','#4c8cbf'],zorder=2)
+        ax2.set_ylabel(f'Time ({unit}s)');ax2.set_title('Entity Times')
+        mx=max(wt,st,1e-9)
+        for i,(lbl,v) in enumerate(zip(['Avg wait','Avg service'],[wt,st])):
+            ax2.text(i,v+mx*0.03,f'{v:.2f}',ha='center',fontsize=9)
+        ax2.grid(axis='y',alpha=0.3)
+        plt.tight_layout()
+        fname=MODEL['name'].replace(' ','_')+'_results.png'
+        plt.savefig(fname,dpi=150,bbox_inches='tight')
+        print(f'Chart saved → {fname}')
+        plt.show()
+    except ImportError:
+        print('Install matplotlib for charts: pip install matplotlib')

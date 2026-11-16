@@ -1,4 +1,3 @@
-import React from "react";
 import type { Node, Edge } from "@xyflow/react";
 import type { NodeData } from "../types";
 import type {
@@ -920,8 +919,8 @@ export default function ProcessProperties({
           </button>
         </>
       )}
-      <button className="ui-btn" onClick={remove}>
-        Delete block
+      <button className="ui-btn ui-btn--danger" onClick={remove}>
+        ✕ Delete block
       </button>
     </aside>
   );

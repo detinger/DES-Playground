@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus, vs } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { Copy, Check, Play, Download, AlertTriangle } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Copy, Check, Download } from 'lucide-react';
 import { generateSimPyCode } from '../lib/simpyGenerator';
+import { generateNotebook } from '../lib/processExport';
 import { DesModel } from '../lib/model';
 import { RunConfig } from '../lib/engine';
 
@@ -12,17 +11,12 @@ interface CodeExportProps {
 }
 
 export default function CodeExport({ model, config }: CodeExportProps) {
-  const [code, setCode]           = useState('');
-  const [codeModel, setCodeModel] = useState<DesModel | null>(null);
-  const [copied, setCopied]       = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  const isStale = code !== '' && model !== null && model !== codeModel;
-
-  const handleGenerate = () => {
-    if (!model) return;
-    setCode(generateSimPyCode(model, config));
-    setCodeModel(model);
-  };
+  const code = useMemo(
+    () => (model ? generateSimPyCode(model, config) : ''),
+    [model, config]
+  );
 
   const handleCopy = () => {
     if (!code) return;
@@ -40,92 +34,47 @@ export default function CodeExport({ model, config }: CodeExportProps) {
     URL.revokeObjectURL(url);
   };
 
+  const handleDownloadNotebook = () => {
+    if (!model) return;
+    const nb   = generateNotebook(model, config);
+    const blob = new Blob([nb], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = `${model.name ?? 'simulation'}.ipynb`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const mono: React.CSSProperties = {
+    fontFamily: 'var(--font-mono)', fontSize: 11,
+    background: 'var(--bg-sunken)', border: '1px solid var(--border)',
+    borderRadius: 4, padding: '1px 5px', color: 'var(--text)',
+  };
+
   return (
-    <div>
-      <div style={{
-        background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-        borderRadius: 'var(--radius)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)',
-      }}>
-        {/* Header — title + stale badge */}
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '12px 18px', borderBottom: '1px solid var(--border)',
-          background: 'var(--bg-subtle)', gap: 12, flexWrap: 'wrap',
-        }}>
-          <div>
-            <div style={{ fontWeight: 650, fontSize: 15, color: 'var(--text)' }}>SimPy Code Export</div>
-            <div style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 2 }}>
-              {!model
-                ? 'Run the simulation first to enable code generation'
-                : code
-                ? `Generated from '${model.name}' · Python 3.9+ / SimPy 4`
-                : 'Generate executable Python simulation code'}
-            </div>
-          </div>
-          {isStale && (
-            <span style={{
-              display: 'flex', alignItems: 'center', gap: 5,
-              fontSize: 11, color: 'var(--warning)',
-              background: 'var(--warning-soft)', border: '1px solid var(--warning)',
-              borderRadius: 4, padding: '3px 8px',
-            }}>
-              <AlertTriangle size={11} /> Model updated — regenerate
-            </span>
-          )}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ fontWeight: 650, fontSize: 13, color: 'var(--text)' }}>SimPy + matplotlib (Python)</div>
+          <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 2 }}>Python 3.9+ · SimPy 4 · matplotlib</div>
         </div>
-
-        {/* Code pane with floating action buttons top-right */}
-        <div style={{ position: 'relative', background: 'var(--bg-sunken)', minHeight: 280 }}>
-          <div style={{
-            position: 'absolute', top: 10, right: 10, zIndex: 10,
-            display: 'flex', alignItems: 'center', gap: 6,
-          }}>
-            <button
-              onClick={handleGenerate}
-              disabled={!model}
-              className="ui-btn ui-btn--primary"
-              style={!model ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
-            >
-              <Play size={13} />
-              {code ? 'Regenerate' : 'Generate'}
-            </button>
-            <button onClick={handleCopy} disabled={!code} className="ui-btn" style={!code ? { opacity: 0.4, cursor: 'not-allowed' } : {}}>
-              {copied ? <Check size={13} /> : <Copy size={13} />}
-              {copied ? 'Copied' : 'Copy'}
-            </button>
-            <button onClick={handleDownload} disabled={!code} className="ui-btn" style={!code ? { opacity: 0.4, cursor: 'not-allowed' } : {}}>
-              <Download size={13} /> .py
-            </button>
-          </div>
-          <div style={{ overflowX: 'auto' }}>
-          {code ? (
-            <SyntaxHighlighter
-              language="python"
-              style={document.documentElement.getAttribute('data-theme') === 'light' ? vs : vscDarkPlus}
-              customStyle={{ margin: 0, padding: '16px', background: 'transparent', fontSize: 12, lineHeight: 1.55 }}
-              showLineNumbers
-            >
-              {code}
-            </SyntaxHighlighter>
-          ) : (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 280, color: 'var(--text-subtle)', fontStyle: 'italic', fontSize: 13 }}>
-              {model ? 'Click "Generate" to create the SimPy script from your model.' : 'Run the simulation first, then click Generate.'}
-            </div>
-          )}
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button onClick={handleCopy} disabled={!code} className="ui-btn" style={!code ? { opacity: 0.4, cursor: 'not-allowed' } : {}}>
+            {copied ? <Check size={13} /> : <Copy size={13} />}
+            {copied ? 'Copied' : 'Copy'}
+          </button>
+          <button onClick={handleDownload} disabled={!code} className="ui-btn" style={!code ? { opacity: 0.4, cursor: 'not-allowed' } : {}} title="Download Python script">
+            <Download size={13} /> .py
+          </button>
+          <button onClick={handleDownloadNotebook} disabled={!model} className="ui-btn" style={!model ? { opacity: 0.4, cursor: 'not-allowed' } : {}} title="Download Colab / Jupyter notebook">
+            <Download size={13} /> .ipynb
+          </button>
         </div>
       </div>
-
-      {/* How-to card */}
-      <div style={{ marginTop: 14, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '16px 20px', boxShadow: 'var(--shadow-sm)' }}>
-        <div style={{ fontWeight: 650, fontSize: 14, color: 'var(--text)', marginBottom: 10 }}>How to run locally or in Colab</div>
-        <ol style={{ margin: 0, padding: '0 0 0 18px', display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, color: 'var(--text-muted)' }}>
-          <li>Ensure Python 3.9+ is installed or open Google Colab.</li>
-          <li>Install SimPy: <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, background: 'var(--bg-sunken)', border: '1px solid var(--border)', borderRadius: 4, padding: '1px 6px', color: 'var(--text)' }}>pip install simpy</code></li>
-          <li>Download the generated script and run it, or paste into a Jupyter cell.</li>
-          <li>The script embeds your graph, quantities, guards, costs and stopping rule, and prints replication summaries as JSON.</li>
-        </ol>
-      </div>
+      <ol style={{ margin: 0, padding: '0 0 0 18px', display: 'flex', flexDirection: 'column', gap: 5, fontSize: 12, color: 'var(--text-muted)' }}>
+        <li><strong>Colab:</strong> download <code style={mono}>.ipynb</code> → open in <a href="https://colab.research.google.com" target="_blank" rel="noreferrer" style={{ color: 'var(--primary)' }}>Google Colab</a>. The first cell installs all packages automatically.</li>
+        <li><strong>Local:</strong> install dependencies — <code style={mono}>pip install simpy matplotlib</code> — then run the <code style={mono}>.py</code> script.</li>
+        <li>The script prints replication summaries as JSON and saves a <code style={mono}>_results.png</code> chart (utilisation + entity times).</li>
+      </ol>
     </div>
   );
 }

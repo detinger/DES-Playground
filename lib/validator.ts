@@ -3,8 +3,8 @@ import { validateProcessModel } from './processValidation';
 // DES model validator — structural, parameter and feasibility checks.
 
 import {
-  DesModel, DesNode, Distribution,
-  ValidationIssue, ValidationResult, Severity,
+  DesModel, Distribution,
+  ValidationIssue, ValidationResult,
 } from './model';
 
 type IssueBuilder = Omit<ValidationIssue, 'id'>;

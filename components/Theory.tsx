@@ -28,16 +28,6 @@ const card: React.CSSProperties = {
   overflow: 'hidden',
 };
 
-const inlineCode: React.CSSProperties = {
-  fontFamily: 'var(--font-mono)',
-  fontSize: 12,
-  background: 'var(--bg-sunken)',
-  border: '1px solid var(--border)',
-  borderRadius: 4,
-  padding: '1px 6px',
-  color: 'var(--text)',
-};
-
 function Badge({ text, color }: { text: string; color: string }) {
   return (
     <span style={{
@@ -116,9 +106,7 @@ function EventTimelineViz() {
     { t: 16,  label: 'Departure',  sub: 'e₂ exits',       color: 'var(--error)'   },
   ];
   // Server state bars: busy t=2→10, busy t=10→16, idle t=0→2
-  const idleSegs = [[0,2],[10,10]];
   const busySegs = [[2,10],[10,16]];
-  const clockJumps = events.map(e => e.t);
 
   return (
     <div style={vizBox}>
@@ -684,7 +672,7 @@ function ExamplesTab({ onLoad, highlightedId }: { onLoad: (ex: ExampleModel) => 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-        Explore queueing models, Clinic, Factory, Inventory and IT case studies. Clinic and editor models use minutes; Factory uses working hours and Inventory uses days. Open the model in Queue Modeler or DES Modeler, then select <strong>Run</strong>. Use Scenario Comparison for experiments; the M/M/c Theory panel applies only to compatible single-stage models.
+        Explore queueing models, Clinic, Factory, Inventory and IT case studies. Clinic and editor models use minutes; Factory uses working hours and Inventory uses days. Open the model in Queue Modeler or Process Modeler, then select <strong>Run</strong>. Use Scenario Comparison for experiments; the M/M/c Theory panel applies only to compatible single-stage models.
       </p>
       <DifficultyFilter value={difficulty} onChange={setDifficulty} count={examples.length} />
       {examples.map(ex => {
@@ -716,7 +704,7 @@ function ExamplesTab({ onLoad, highlightedId }: { onLoad: (ex: ExampleModel) => 
               style={{ flexShrink: 0 }}
               title="Load this editable model"
             >
-              <ExternalLink size={13} /> {ex.config.unit === 'hour' || ex.config.unit === 'day' ? 'Open DES Modeler' : 'Open Queue Modeler'}
+              <ExternalLink size={13} /> {ex.config.unit === 'hour' || ex.config.unit === 'day' ? 'Open Process Modeler' : 'Open Queue Modeler'}
             </button>
           </div>
 

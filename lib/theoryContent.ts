@@ -50,7 +50,7 @@ export const LESSONS: Lesson[] = [
     paragraphs: [
       'Kendall notation summarises a queue as A/S/c: A is the interarrival-time distribution, S is the service-time distribution, and c is the number of parallel servers sharing the queue. M means memoryless (exponential times; Poisson arrivals), D means deterministic (constant times), and G means a general distribution. GI is often used to specify general independent interarrival times.',
       'Read M/M/1 as exponential interarrival times, exponential service times, and one server. M/M/3 has three parallel servers, each with service rate μ. M/D/1 has exponential interarrival times and constant service times. M/G/1 allows a general service-time distribution. The letters describe distributions, not numerical rates.',
-      'The extended form A/S/c/K/N/Disc also specifies total system capacity K (waiting plus in service), source population N, and queue discipline Disc. When omitted, the usual assumptions are unlimited capacity, an infinite source population, and first-come, first-served (FCFS, also called FIFO). For example, M/M/2/5/∞/FCFS has two servers and room for only three waiting entities; an arrival finding all five places occupied is blocked. The M/M/c Visualizer uses unlimited capacity and FIFO; it does not model this finite-capacity example.',
+      'The extended form A/S/c/K/N/Disc also specifies total system capacity K (waiting plus in service), source population N, and queue discipline Disc. When omitted, the usual assumptions are unlimited capacity, an infinite source population, and first-come, first-served (FCFS, also called FIFO). For example, M/M/2/5/∞/FCFS has two servers and room for only three waiting entities; an arrival finding all five places occupied is blocked. The M/M/c Modeler uses unlimited capacity and FIFO; it does not model this finite-capacity example.',
 
       'A queue holds entities waiting for a server. When all c server slots are busy, arriving entities join the queue in FIFO order. When a slot frees up, the first entity in the queue begins service immediately. Queue length Lq counts only waiting entities; in-service entities are counted separately.',
       'Server utilisation ρ = λ/(c·μ) measures the fraction of server capacity in use at steady state. When ρ ≥ 1 the system is unstable: the queue grows without bound. The relationship between ρ and queue length is highly non-linear — at ρ = 0.5 waiting is minimal, but at ρ = 0.9 the M/M/1 average queue length is 16.2× its value at ρ = 0.5.',
@@ -99,7 +99,7 @@ export const LESSONS: Lesson[] = [
     paragraphs: [
       'A simulation that starts empty will underestimate steady-state waiting times because early entities see an artificially short queue. The warm-up period (also called initialisation bias removal) discards observations made before the system reaches a statistical equilibrium. A common rule of thumb: warm-up = 10–20% of the total horizon for moderately loaded systems.',
       'One replication gives one sample from a distribution of possible outcomes. To quantify uncertainty, run multiple independent replications with different seeds (this simulator uses seed + rep×1000). Compute the sample mean and a 95% confidence interval from the t-distribution. The CI tells you: if the true mean is θ, 95% of such intervals will contain θ.',
-      'The ReplicationsPanel shows CI bounds for each KPI. If the CI is wide relative to the mean, your estimates are imprecise — run more replications or extend the horizon. The TheoryPanel\'s M/M/c reference values are deterministic steady-state limits; a well-run simulation will converge toward them as horizon and replications increase.',
+      'The Metrics panel shows confidence-interval bounds for each KPI. If an interval is wide relative to the mean, your estimates are imprecise — run more replications or extend the horizon. M/M/c reference values are deterministic steady-state limits; a well-run simulation will converge toward them as horizon and replications increase.',
     ],
     keyFact: '95% CI half-width ∝ t·σ/√n. Doubling precision (halving half-width) requires 4× more replications. It is cheaper to extend the horizon than to replicate.',
     misconception: {
@@ -128,7 +128,7 @@ export const LESSONS: Lesson[] = [
     paragraphs: [
       'An activity-cycle model is a tuple of activities A, places Q, input mapping I, output mapping O, duration function τ and initial token counts μ₀. Entity tokens represent patients, jobs or products; resource tokens represent available workers or machines.',
       'An activity starts when its required input tokens are available. It consumes those tokens, schedules completion after its sampled duration, and releases output tokens when it completes. For service, one waiting entity and one idle resource token are consumed; completion returns the resource token and sends the entity to the next queue. FIFO determines which waiting entity is selected.',
-      'Expand Formal model on any example, in the Queue Modeler, or in the M/M/c Visualizer to inspect the instantiated activities, distributions, resource counts and state rules. Editing a distribution or capacity updates the specification. Factory and Inventory open in DES Modeler, where stores, shared resources, conditions and cycles specify their state transitions.',
+      'Expand Formal model on any example, in the Queue Modeler, or in the M/M/c Modeler to inspect the instantiated activities, distributions, resource counts and state rules. Editing a distribution or capacity updates the specification. Factory and Inventory open in Process Modeler, where stores, shared resources, conditions and cycles specify their state transitions.',
       'A complete event-driven state also includes the ordered entity queues and the future-event calendar. Counts alone are not sufficient for general service distributions: scheduled completion times retain the information needed to advance the simulation.',
     ],
     keyFact: 'A service completion returns the resource token and moves the entity forward. It does not put that entity back into the same waiting queue unless the model explicitly contains that loop.',
@@ -177,8 +177,8 @@ export const EXAMPLES: ExampleModel[] = [
       { id: 'det-snk', type: 'sink',   position: { x: 620, y: 240 }, data: { label: 'Departures', type: 'sink' } },
     ],
     edges: [
-      { id: 'det-e1', source: 'det-src', target: 'det-srv', animated: true, style: edgeStyle },
-      { id: 'det-e2', source: 'det-srv', target: 'det-snk', animated: true, style: edgeStyle },
+      { id: 'det-e1', source: 'det-src', target: 'det-srv', type: 'smoothstep', animated: true, style: edgeStyle },
+      { id: 'det-e2', source: 'det-srv', target: 'det-snk', type: 'smoothstep', animated: true, style: edgeStyle },
     ],
     config: { horizon: 60, warmup: 0, seed: 42, replications: 1 },
   },
@@ -201,8 +201,8 @@ export const EXAMPLES: ExampleModel[] = [
       { id: 'mm1-snk', type: 'sink',   position: { x: 620, y: 240 }, data: { label: 'Departures', type: 'sink' } },
     ],
     edges: [
-      { id: 'mm1-e1', source: 'mm1-src', target: 'mm1-srv', animated: true, style: edgeStyle },
-      { id: 'mm1-e2', source: 'mm1-srv', target: 'mm1-snk', animated: true, style: edgeStyle },
+      { id: 'mm1-e1', source: 'mm1-src', target: 'mm1-srv', type: 'smoothstep', animated: true, style: edgeStyle },
+      { id: 'mm1-e2', source: 'mm1-srv', target: 'mm1-snk', type: 'smoothstep', animated: true, style: edgeStyle },
     ],
     config: { horizon: 2000, warmup: 200, seed: 42, replications: 5 },
   },
@@ -225,8 +225,8 @@ export const EXAMPLES: ExampleModel[] = [
       { id: 'mm2-snk', type: 'sink',   position: { x: 620, y: 240 }, data: { label: 'Departures', type: 'sink' } },
     ],
     edges: [
-      { id: 'mm2-e1', source: 'mm2-src', target: 'mm2-srv', animated: true, style: edgeStyle },
-      { id: 'mm2-e2', source: 'mm2-srv', target: 'mm2-snk', animated: true, style: edgeStyle },
+      { id: 'mm2-e1', source: 'mm2-src', target: 'mm2-srv', type: 'smoothstep', animated: true, style: edgeStyle },
+      { id: 'mm2-e2', source: 'mm2-srv', target: 'mm2-snk', type: 'smoothstep', animated: true, style: edgeStyle },
     ],
     config: { horizon: 2000, warmup: 200, seed: 42, replications: 5 },
   },
@@ -249,8 +249,8 @@ export const EXAMPLES: ExampleModel[] = [
       { id: 'md1-snk', type: 'sink',   position: { x: 620, y: 240 }, data: { label: 'Departures', type: 'sink' } },
     ],
     edges: [
-      { id: 'md1-e1', source: 'md1-src', target: 'md1-srv', animated: true, style: edgeStyle },
-      { id: 'md1-e2', source: 'md1-srv', target: 'md1-snk', animated: true, style: edgeStyle },
+      { id: 'md1-e1', source: 'md1-src', target: 'md1-srv', type: 'smoothstep', animated: true, style: edgeStyle },
+      { id: 'md1-e2', source: 'md1-srv', target: 'md1-snk', type: 'smoothstep', animated: true, style: edgeStyle },
     ],
     config: { horizon: 2000, warmup: 200, seed: 42, replications: 5 },
   },
@@ -274,9 +274,9 @@ export const EXAMPLES: ExampleModel[] = [
       { id: 'pl-snk', type: 'sink',   position: { x: 750, y: 240 }, data: { label: 'Done',      type: 'sink'   } },
     ],
     edges: [
-      { id: 'pl-e1', source: 'pl-src', target: 'pl-s1',  animated: true, style: edgeStyle },
-      { id: 'pl-e2', source: 'pl-s1',  target: 'pl-s2',  animated: true, style: edgeStyle },
-      { id: 'pl-e3', source: 'pl-s2',  target: 'pl-snk', animated: true, style: edgeStyle },
+      { id: 'pl-e1', source: 'pl-src', target: 'pl-s1',  type: 'smoothstep', animated: true, style: edgeStyle },
+      { id: 'pl-e2', source: 'pl-s1',  target: 'pl-s2',  type: 'smoothstep', animated: true, style: edgeStyle },
+      { id: 'pl-e3', source: 'pl-s2',  target: 'pl-snk', type: 'smoothstep', animated: true, style: edgeStyle },
     ],
     config: { horizon: 1000, warmup: 100, seed: 42, replications: 3 },
   },

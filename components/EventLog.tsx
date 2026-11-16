@@ -75,19 +75,14 @@ export default function EventLog({ trace, playbackIndex, nodeNames }: EventLogPr
   };
 
   return (
-    <div style={{
-      border: '1px solid var(--border)',
-      borderRadius: 'var(--radius)',
-      overflow: 'hidden',
-      background: 'var(--bg-elevated)',
-      boxShadow: 'var(--shadow-sm)',
-    }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Header */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '10px 14px',
         borderBottom: '1px solid var(--border)',
         background: 'var(--bg-subtle)',
+        flexShrink: 0,
       }}>
         <span style={{ fontWeight: 650, fontSize: 14, color: 'var(--text)' }}>Event Log</span>
         <span style={{ fontSize: 12, color: 'var(--text-subtle)', fontFamily: 'var(--font-mono)' }}>
@@ -96,7 +91,7 @@ export default function EventLog({ trace, playbackIndex, nodeNames }: EventLogPr
       </div>
 
       {/* Table */}
-      <div ref={containerRef} style={{ maxHeight: 300, overflowY: 'auto', overflowAnchor: 'none' }}>
+      <div ref={containerRef} style={{ flex: 1, overflowY: 'auto', overflowAnchor: 'none', minHeight: 0 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
           <thead>
             <tr>
@@ -181,6 +176,7 @@ export default function EventLog({ trace, playbackIndex, nodeNames }: EventLogPr
           fontSize: 11,
           color: 'var(--text-subtle)',
           background: 'var(--bg-subtle)',
+          flexShrink: 0,
         }}>
           Showing events {start + 1}–{end + 1} of {trace.length}. Step through or use Jump to navigate.
         </div>

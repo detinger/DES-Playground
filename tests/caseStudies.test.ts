@@ -67,6 +67,13 @@ assert.throws(() => runInventory({ ...inventory, seed: NaN }));
 const clinic = CASE_STUDIES.find((x) => x.id === "clinic")!;
 assert(!validateModel(compileModel(clinic.nodes, clinic.edges)).hasErrors);
 assert.equal(clinic.nodes[1].data.distribution.stdDev, 1);
+for (const example of EXAMPLES)
+  for (const edge of example.edges)
+    assert.equal(
+      edge.type,
+      "smoothstep",
+      `${example.id}/${edge.id} must use the modelers' smooth-step edge style`,
+    );
 let formulas = 0;
 function check(tex: string) {
   const svg = renderMath(tex, true);
@@ -137,7 +144,6 @@ for (const id of ["factory", "inventory"]) {
     React.createElement(DESModeler, {
       name: ex.name,
       setName: () => {},
-      autosaveStatus: "",
       history: {
         undo: () => {},
         redo: () => {},
@@ -158,5 +164,5 @@ for (const id of ["factory", "inventory"]) {
   assert(html.includes("How to construct a DES model"));
 }
 console.log(
-  "React lessons, examples, challenges and DES Modeler render successfully.",
+  "React lessons, examples, challenges and Process Modeler render successfully.",
 );

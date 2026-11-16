@@ -1,7 +1,7 @@
 import { MathText } from './Math';
 import React, { useState } from 'react';
 import { ValidationResult, ValidationIssue, Severity } from '../lib/model';
-import { AlertCircle, AlertTriangle, Info, Lightbulb, ChevronDown, ChevronRight, XCircle } from 'lucide-react';
+import { AlertTriangle, Info, Lightbulb, ChevronDown, ChevronRight, XCircle } from 'lucide-react';
 
 interface ValidationPanelProps {
   result: ValidationResult;
