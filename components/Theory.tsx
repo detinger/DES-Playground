@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BookOpen, FlaskConical, Trophy, ChevronDown, ChevronRight, CheckCircle2, Circle, Lightbulb, ExternalLink } from 'lucide-react';
+import { FlaskConical, Trophy, ChevronDown, ChevronRight, CheckCircle2, Circle, Lightbulb, ExternalLink } from 'lucide-react';
 import { Node, Edge } from '@xyflow/react';
 import { NodeData } from '../types';
+import { readCompletedChallenges, savePreference } from '../lib/appStorage';
 import { LESSONS, EXAMPLES, CHALLENGES, ExampleModel, Challenge } from '../lib/theoryContent';
 
 interface TheoryProps {
   onLoadExample: (nodes: Node<NodeData>[], edges: Edge[], config?: ExampleModel['config']) => void;
-  initialSection?: Section;
+  section: Section;
+  highlightedExampleId: string | null;
+  onGoToExample: (id: string) => void;
 }
 
 type Section = 'lessons' | 'examples' | 'challenges';
@@ -700,10 +703,7 @@ function ChallengesTab({
 }: {
   onLoadExample: (ex: ExampleModel) => void;
 }) {
-  const [completed, setCompleted] = useState<Set<string>>(() => {
-    try { return new Set(JSON.parse(localStorage.getItem('des-challenges') ?? '[]')); }
-    catch { return new Set(); }
-  });
+  const [completed, setCompleted] = useState<Set<string>>(readCompletedChallenges);
   const [selected, setSelected] = useState<Record<string, number>>({});
   const [submitted, setSubmitted] = useState<Record<string, boolean>>({});
   const [hintsShown, setHintsShown] = useState<Record<string, number>>({});
@@ -711,7 +711,7 @@ function ChallengesTab({
   const markComplete = (id: string) => {
     setCompleted(prev => {
       const next = new Set([...prev, id]);
-      localStorage.setItem('des-challenges', JSON.stringify([...next]));
+      savePreference('des-challenges', JSON.stringify([...next]));
       return next;
     });
   };
@@ -972,68 +972,14 @@ function ChallengesTab({
 
 // ── Main Theory component ─────────────────────────────────────────────────────
 
-export default function Theory({ onLoadExample, initialSection = 'lessons' }: TheoryProps) {
-  const [section, setSection] = useState<Section>(initialSection);
-  const [pendingExampleId, setPendingExampleId] = useState<string | null>(null);
-  const [highlightedExampleId, setHighlightedExampleId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (pendingExampleId) {
-      setSection('examples');
-      setHighlightedExampleId(pendingExampleId);
-      setPendingExampleId(null);
-    }
-  }, [pendingExampleId]);
-
-  // Clear highlight when user manually switches away from examples
-  useEffect(() => {
-    if (section !== 'examples') setHighlightedExampleId(null);
-  }, [section]);
-
+export default function Theory({ onLoadExample, section, highlightedExampleId, onGoToExample }: TheoryProps) {
   const handleLoadExample = (ex: ExampleModel) => {
     onLoadExample(ex.nodes as Node<NodeData>[], ex.edges as Edge[], ex.config);
   };
 
-  const goToExample = (id: string) => {
-    setPendingExampleId(id);
-  };
-
-  const tabs: { id: Section; label: string; icon: React.ReactNode }[] = [
-    { id: 'lessons',    label: 'Lessons',    icon: <BookOpen size={14} /> },
-    { id: 'examples',   label: 'Examples',   icon: <FlaskConical size={14} /> },
-    { id: 'challenges', label: 'Challenges', icon: <Trophy size={14} /> },
-  ];
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 920 }}>
-      {/* Tab bar */}
-      <div style={{
-        display: 'flex', gap: 4,
-        background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-        borderRadius: 'var(--radius)', padding: 4, boxShadow: 'var(--shadow-sm)',
-        width: 'fit-content',
-      }}>
-        {tabs.map(t => (
-          <button
-            key={t.id}
-            onClick={() => setSection(t.id)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 7,
-              padding: '7px 16px', borderRadius: 'calc(var(--radius) - 2px)',
-              border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
-              background: section === t.id ? 'var(--primary)' : 'transparent',
-              color: section === t.id ? 'var(--text-on-primary)' : 'var(--text-muted)',
-              transition: 'background 120ms, color 120ms',
-            }}
-            onMouseEnter={e => { if (section !== t.id) e.currentTarget.style.background = 'var(--bg-hover)'; }}
-            onMouseLeave={e => { if (section !== t.id) e.currentTarget.style.background = 'transparent'; }}
-          >
-            {t.icon}{t.label}
-          </button>
-        ))}
-      </div>
-
-      {section === 'lessons'    && <LessonsTab onGoToExample={goToExample} />}
+      {section === 'lessons'    && <LessonsTab onGoToExample={onGoToExample} />}
       {section === 'examples'   && <ExamplesTab onLoad={handleLoadExample} highlightedId={highlightedExampleId} />}
       {section === 'challenges' && <ChallengesTab onLoadExample={handleLoadExample} />}
     </div>

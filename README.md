@@ -10,6 +10,7 @@ An interactive learning environment for **Discrete Event Simulation (DES)** and 
 
 | Area | What you get |
 |---|---|
+| **Home** | Learning overview, challenge progress, current model summary, appearance options and confirmed data reset |
 | **Lessons** | 7 accordion lessons (DES fundamentals → code export) with inline visualizations |
 | **Examples** | 5 pre-built models (M/M/1, M/M/2, M/D/1, production line, two-stage) — load any into the editor |
 | **Challenges** | 5 assessed problems with progressive hints, answer validation, and linked examples |
@@ -19,6 +20,8 @@ An interactive learning environment for **Discrete Event Simulation (DES)** and 
 | **Colab notebooks** | 5 fully worked Jupyter notebooks in `colab/` matching the browser simulation engine |
 
 ---
+
+The sidebar groups Lessons, Examples and Challenges under **Learn**, with the visualizer and model editor under **Workspace**. **Home** is the default landing page. Challenge progress and appearance preferences are stored in this browser; models and simulation results are held in memory. Clearing app data resets progress and preferences and restores the starter model, without affecting downloaded files or unrelated browser storage.
 
 ## Tech stack
 
@@ -51,7 +54,8 @@ npm run preview    # preview the build
 ```
 App.tsx                    # shell: sidebar nav, theme toggle, tab routing
 components/
-  Theory.tsx               # Lessons / Examples / Challenges tabs
+  Home.tsx                 # overview, quick starts, preferences and data reset
+  Theory.tsx               # separate Lessons / Examples / Challenges pages
   Editor.tsx               # Model Explorer (canvas + run + export)
   Simulator.tsx            # M/M/c Visualizer playground
   CodeExport.tsx           # SimPy code panel
@@ -74,6 +78,7 @@ lib/
   prng.ts                  # mulberry32 seeded PRNG
   scenarios.ts             # scenario snapshot helpers
   utils.ts                 # shared utilities
+  appStorage.ts            # app-scoped preferences and challenge progress
 colab/                     # Jupyter notebooks (SimPy, same metrics as browser)
 ```
 
@@ -81,7 +86,7 @@ colab/                     # Jupyter notebooks (SimPy, same metrics as browser)
 
 ## Colab notebooks
 
-Five fully worked examples in `colab/` — open in Google Colab or run locally with Jupyter:
+Five fully worked examples in `colab/` — open in Google Colab or run locally with Jupyter. See the [Colab guide](colab/README.md) for launch links and step-by-step instructions:
 
 | Notebook | Topic |
 |---|---|

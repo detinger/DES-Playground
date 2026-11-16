@@ -2,8 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Simulator from './components/Simulator';
 import Editor from './components/Editor';
 import Theory from './components/Theory';
+import Home from './components/Home';
+import { clearAppData, readPreference, savePreference } from './lib/appStorage';
 import {
   Activity,
+  House,
   LayoutDashboard,
   Share2,
   BookOpen,
@@ -18,7 +21,7 @@ import { Node, Edge } from '@xyflow/react';
 import { NodeData } from './types';
 import { RunConfig } from './lib/engine';
 
-type TabId = 'theory' | 'examples' | 'challenges' | 'playground' | 'editor';
+export type TabId = 'home' | 'theory' | 'examples' | 'challenges' | 'playground' | 'editor';
 type Theme = 'light' | 'dark';
 
 interface NavItemProps {
@@ -34,7 +37,8 @@ function NavItem({ icon, label, active, collapsed, onClick }: NavItemProps) {
     <button
       className={`nav-item${active ? ' is-active' : ''}`}
       onClick={onClick}
-      title={collapsed ? label : undefined}
+      title={label}
+      aria-label={label}
       aria-current={active ? 'page' : undefined}
     >
       <span className="nav-icon">{icon}</span>
@@ -52,6 +56,7 @@ const NAV_ITEMS: { id: TabId; label: string; icon: React.ReactNode }[] = [
 ];
 
 const TAB_TITLES: Record<TabId, { title: string; subtitle: string }> = {
+  home:       { title: 'Home', subtitle: 'Overview, quick starts and preferences' },
   theory:     { title: 'Lessons',          subtitle: 'DES concepts and queueing fundamentals' },
   examples:   { title: 'Examples',         subtitle: '5 pre-built models illustrating key queueing concepts' },
   challenges: { title: 'Challenges',       subtitle: 'Test your DES knowledge — 5 assessed problems' },
@@ -59,12 +64,7 @@ const TAB_TITLES: Record<TabId, { title: string; subtitle: string }> = {
   editor:     { title: 'Model Explorer',   subtitle: 'Build, run and export DES models' },
 };
 
-function App() {
-  const [activeTab, setActiveTab] = useState<TabId>('theory');
-  const [theme, setTheme] = useState<Theme>('light');
-  const [collapsed, setCollapsed] = useState(false);
-
-  const [nodes, setNodes] = useState<Node<NodeData>[]>([
+const INITIAL_NODES: React.ComponentProps<typeof Editor>['nodes'] = [
     {
       id: '1',
       type: 'source',
@@ -95,17 +95,52 @@ function App() {
         type: 'sink',
       },
     },
-  ]);
+];
 
-  const [edges, setEdges] = useState<Edge[]>([
+const INITIAL_EDGES: Edge[] = [
     { id: 'e1-2', source: '1', target: '2', animated: true, style: { stroke: 'var(--primary)', strokeWidth: 2 } },
     { id: 'e2-3', source: '2', target: '3', animated: true, style: { stroke: 'var(--primary)', strokeWidth: 2 } },
-  ]);
+];
+
+function App() {
+  const [editorActionsElement, setEditorActionsElement] = useState<HTMLDivElement | null>(null);
+  const [activeTab, setActiveTab] = useState<TabId>('home');
+  const [theme, setTheme] = useState<Theme>(() => readPreference('des-theme') === 'dark' ? 'dark' : 'light');
+  const [collapsed, setCollapsed] = useState(() => readPreference('des-sidebar-collapsed') === 'true');
+  const [highlightedExampleId, setHighlightedExampleId] = useState<string | null>(null);
+
+  const [nodes, setNodes] = useState<Node<NodeData>[]>(() => structuredClone(INITIAL_NODES));
+  const [edges, setEdges] = useState<Edge[]>(() => structuredClone(INITIAL_EDGES));
   const [exampleConfig, setExampleConfig] = useState<Partial<RunConfig> | undefined>(undefined);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
+
+  const navigate = (tab: TabId) => {
+    setHighlightedExampleId(null);
+    setActiveTab(tab);
+  };
+
+  const changeTheme = (value: Theme) => {
+    setTheme(value);
+    savePreference('des-theme', value);
+  };
+
+  const changeCollapsed = (value: boolean) => {
+    setCollapsed(value);
+    savePreference('des-sidebar-collapsed', String(value));
+  };
+
+  const handleClearData = () => {
+    clearAppData();
+    setNodes(structuredClone(INITIAL_NODES));
+    setEdges(structuredClone(INITIAL_EDGES));
+    setExampleConfig(undefined);
+    setHighlightedExampleId(null);
+    setTheme('light');
+    setCollapsed(false);
+  };
 
   const handleLoadExample = useCallback((
     exNodes: Node<NodeData>[],
@@ -114,7 +149,7 @@ function App() {
   ) => {
     setNodes(exNodes);
     setEdges(exEdges);
-    if (cfg) setExampleConfig({ ...cfg }); // new object reference always re-triggers Editor effect
+    setExampleConfig(cfg ? { ...cfg } : undefined);
     setActiveTab('editor');
   }, []);
 
@@ -137,25 +172,27 @@ function App() {
         </div>
 
         <nav className="sidebar-nav" aria-label="Pages">
-          {!collapsed && (
-            <div className="sidebar-group-label">Workspace</div>
-          )}
-          {NAV_ITEMS.map(item => (
-            <NavItem
-              key={item.id}
-              icon={item.icon}
-              label={item.label}
-              active={activeTab === item.id}
-              collapsed={collapsed}
-              onClick={() => setActiveTab(item.id)}
-            />
+          <NavItem icon={<House size={18} />} label="Home" active={activeTab === 'home'}
+            collapsed={collapsed} onClick={() => navigate('home')} />
+          {[
+            { label: 'Learn', items: NAV_ITEMS.slice(0, 3) },
+            { label: 'Workspace', items: NAV_ITEMS.slice(3) },
+          ].map(group => (
+            <div className="sidebar-group" role="group" aria-label={group.label} key={group.label}>
+              {!collapsed && <div className="sidebar-group-label">{group.label}</div>}
+              {group.items.map(item => (
+                <NavItem key={item.id} icon={item.icon} label={item.label}
+                  active={activeTab === item.id} collapsed={collapsed}
+                  onClick={() => navigate(item.id)} />
+              ))}
+            </div>
           ))}
         </nav>
 
         <div className="sidebar-footer">
           <button
             className="nav-item"
-            onClick={() => setCollapsed(c => !c)}
+            onClick={() => changeCollapsed(!collapsed)}
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             style={{ justifyContent: collapsed ? 'center' : undefined }}
@@ -178,22 +215,36 @@ function App() {
             <div className="toolbar-subtitle">{subtitle}</div>
           </div>
 
-          <button
-            className="icon-btn"
-            onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
-            title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-            aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-          >
-            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-          </button>
+          <div className="toolbar-actions" ref={setEditorActionsElement}>
+            {activeTab !== 'editor' && (
+              <button
+                className="icon-btn"
+                onClick={() => changeTheme(theme === 'dark' ? 'light' : 'dark')}
+                title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+                aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+              >
+                {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+              </button>
+            )}
+          </div>
         </div>
 
-        <main className="app-content" id="main-content">
+        <main className="app-content" id="main-content" key={activeTab}>
+          {activeTab === 'home' && (
+            <Home onNavigate={navigate} nodeCount={nodes.length} edgeCount={edges.length}
+              theme={theme} onThemeChange={changeTheme} collapsed={collapsed}
+              onCollapsedChange={changeCollapsed} onClearData={handleClearData} />
+          )}
           {(activeTab === 'theory' || activeTab === 'examples' || activeTab === 'challenges') && (
             <Theory
               key={activeTab}
               onLoadExample={handleLoadExample}
-              initialSection={
+              highlightedExampleId={highlightedExampleId}
+              onGoToExample={id => {
+                setHighlightedExampleId(id);
+                setActiveTab('examples');
+              }}
+              section={
                 activeTab === 'challenges' ? 'challenges'
                 : activeTab === 'examples'  ? 'examples'
                 : 'lessons'
@@ -203,6 +254,7 @@ function App() {
           {activeTab === 'playground' && <Simulator />}
           {activeTab === 'editor'     && (
             <Editor
+              headerActionsElement={editorActionsElement}
               nodes={nodes}
               setNodes={setNodes}
               edges={edges}

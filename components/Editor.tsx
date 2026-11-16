@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   ReactFlow,
@@ -47,6 +48,7 @@ let id = 4;
 const getId = () => `${id++}`;
 
 interface EditorProps {
+  headerActionsElement: HTMLDivElement | null;
   nodes: Node<NodeData>[];
   setNodes: React.Dispatch<React.SetStateAction<Node<NodeData>[]>>;
   edges: Edge[];
@@ -54,7 +56,7 @@ interface EditorProps {
   exampleConfig?: Partial<RunConfig>;
 }
 
-export default function Editor({ nodes, setNodes, edges, setEdges, exampleConfig }: EditorProps) {
+export default function Editor({ headerActionsElement, nodes, setNodes, edges, setEdges, exampleConfig }: EditorProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
   const [selectedNode, setSelectedNode] = useState<Node<NodeData> | null>(null);
@@ -83,6 +85,11 @@ export default function Editor({ nodes, setNodes, edges, setEdges, exampleConfig
   const [baseline, setBaseline]       = useState<Scenario | null>(null);
   const [alternative, setAlternative] = useState<Scenario | null>(null);
   const [showExport, setShowExport]   = useState(false);
+  const exportPanelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (showExport) exportPanelRef.current?.scrollIntoView({ block: 'start' });
+  }, [showExport]);
 
   const HELP_DESK: { nodes: any[]; edges: any[] } = {
     nodes: [
@@ -110,6 +117,7 @@ export default function Editor({ nodes, setNodes, edges, setEdges, exampleConfig
   }, [nodes, edges, runConfig]);
 
   const handleReset = useCallback(() => {
+    setShowExport(false);
     setRunResult(null);
     setRunOutput(null);
     setLastCompiledModel(null);
@@ -399,6 +407,20 @@ export default function Editor({ nodes, setNodes, edges, setEdges, exampleConfig
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {headerActionsElement && createPortal(
+        <button
+          onClick={() => setShowExport(s => !s)}
+          className={`ui-btn${showExport ? ' ui-btn--primary' : ''}`}
+          title={lastCompiledModel ? 'Toggle Python / R code export' : 'Run the model to enable Python / R code export'}
+          disabled={!lastCompiledModel}
+          aria-expanded={showExport}
+          aria-controls={showExport ? 'model-code-export' : undefined}
+          style={!lastCompiledModel ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+        >
+          <Code2 size={16} /> {showExport ? 'Hide Export' : 'Export Code'}
+        </button>,
+        headerActionsElement,
+      )}
 
       {/* Controls bar */}
       <div style={{
@@ -545,15 +567,7 @@ export default function Editor({ nodes, setNodes, edges, setEdges, exampleConfig
               </span>
             )}
           </>)}
-          <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 2px' }} />
-          <button
-            onClick={() => setShowExport(s => !s)}
-            className="ui-btn"
-            title="Toggle Python / R code export"
-            style={showExport ? { background: 'var(--primary)', borderColor: 'var(--primary)', color: 'var(--text-on-primary)' } : {}}
-          >
-            <Code2 size={14} /> {showExport ? 'Hide Export' : 'Export Code'}
-          </button>
+
         </div>
       </div>
 
@@ -1027,7 +1041,7 @@ export default function Editor({ nodes, setNodes, edges, setEdges, exampleConfig
         )}
 
         {showExport && lastCompiledModel && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginTop: 8 }}>
+          <div id="model-code-export" ref={exportPanelRef} style={{ display: 'flex', flexDirection: 'column', gap: 20, marginTop: 8 }}>
             <CodeExport model={lastCompiledModel} config={runConfig} />
             <SimmerCodeExport model={lastCompiledModel} config={runConfig} />
           </div>
