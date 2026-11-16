@@ -1,85 +1,137 @@
 import React from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
 import { PlayCircle, Server, LogOut, Users, Activity } from 'lucide-react';
-import { NodeData } from '../types';
+import { NodeData } from '../../types';
+
+const nodeBase: React.CSSProperties = {
+  background: 'var(--des-fill)',
+  color: 'var(--des-label)',
+  border: '1.5px solid var(--des-stroke)',
+  borderRadius: 'var(--radius-sm)',
+  minWidth: 150,
+  fontFamily: 'var(--font-sans)',
+  fontSize: 13,
+  padding: '8px 12px',
+  boxShadow: 'var(--shadow-sm)',
+};
+
+const selectedStyle: React.CSSProperties = {
+  borderColor: 'var(--primary)',
+  boxShadow: 'var(--focus-ring)',
+};
+
+const dividerStyle: React.CSSProperties = {
+  borderTop: '1px solid var(--border)',
+  marginTop: 6,
+  paddingTop: 6,
+};
+
+const metaRow: React.CSSProperties = {
+  fontSize: 11,
+  color: 'var(--text-muted)',
+  display: 'flex',
+  alignItems: 'center',
+  gap: 4,
+};
 
 export function SourceNode({ data, selected }: NodeProps<NodeData>) {
   return (
-    <div className={`px-4 py-2 shadow-md rounded-md bg-gray-800 border-2 ${selected ? 'border-indigo-500' : 'border-gray-600'} min-w-[150px]`}>
-      <div className="flex items-center gap-2 mb-2">
-        <PlayCircle className="w-5 h-5 text-emerald-400" />
-        <div className="font-bold text-gray-200">{data.label}</div>
+    <div style={{ ...nodeBase, ...(selected ? selectedStyle : {}) }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+        <PlayCircle size={15} style={{ color: 'var(--success)', flexShrink: 0 }} />
+        <span style={{ fontWeight: 650, color: 'var(--text)', fontSize: 13 }}>{data.label}</span>
       </div>
-      <div className="text-xs text-gray-400">
-        Arrivals: {data.distribution?.type}
+      <div style={metaRow}>
+        {data.distribution?.type ?? 'exponential'} arrivals
       </div>
       {data.simState && (
-        <div className="mt-2 pt-2 border-t border-gray-700 text-xs text-emerald-400 flex items-center gap-1">
-          <Activity className="w-3 h-3" />
+        <div style={{ ...dividerStyle, ...metaRow, color: 'var(--success)' }}>
+          <Activity size={11} />
           Generated: {data.simState.generated}
         </div>
       )}
-      <Handle type="source" position={Position.Right} className="w-3 h-3 bg-indigo-500" />
+      <Handle
+        type="source"
+        position={Position.Right}
+        style={{ width: 10, height: 10, background: 'var(--primary)', border: '2px solid var(--bg-elevated)' }}
+      />
     </div>
   );
 }
 
 export function ServerNode({ data, selected }: NodeProps<NodeData>) {
+  const busy = data.simState?.busyServers ?? 0;
+  const capacity = data.capacity ?? 1;
+  const queueLen = data.simState?.queueLength ?? 0;
+
   return (
-    <div className={`px-4 py-2 shadow-md rounded-md bg-gray-800 border-2 ${selected ? 'border-indigo-500' : 'border-gray-600'} min-w-[150px]`}>
-      <Handle type="target" position={Position.Left} className="w-3 h-3 bg-indigo-500" />
-      <div className="flex items-center gap-2 mb-2">
-        <Server className="w-5 h-5 text-amber-400" />
-        <div className="font-bold text-gray-200">{data.label}</div>
+    <div style={{ ...nodeBase, ...(selected ? selectedStyle : {}) }}>
+      <Handle
+        type="target"
+        position={Position.Left}
+        style={{ width: 10, height: 10, background: 'var(--primary)', border: '2px solid var(--bg-elevated)' }}
+      />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+        <Server size={15} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+        <span style={{ fontWeight: 650, color: 'var(--text)', fontSize: 13 }}>{data.label}</span>
       </div>
-      <div className="text-xs text-gray-400">
-        Service: {data.distribution?.type}
-      </div>
-      <div className="text-xs text-gray-400">
-        Capacity: {data.capacity}
+      <div style={metaRow}>
+        {data.distribution?.type ?? 'exponential'} · cap {capacity}
       </div>
       {data.simState && (
-        <div className="mt-2 pt-2 border-t border-gray-700 space-y-1">
-          <div className="text-xs text-indigo-400 flex items-center gap-1">
-            <Users className="w-3 h-3" />
-            Queue: {data.simState.queueLength}
+        <div style={dividerStyle}>
+          <div style={{ ...metaRow, color: 'var(--primary)', marginBottom: 3 }}>
+            <Users size={11} />
+            Queue: {queueLen}
+            &nbsp;&nbsp;
+            <Activity size={11} style={{ color: 'var(--accent)' }} />
+            <span style={{ color: 'var(--accent)' }}>Busy: {busy}/{capacity}</span>
           </div>
-          <div className="text-xs text-amber-400 flex items-center gap-1">
-            <Activity className="w-3 h-3" />
-            Busy: {data.simState.busyServers} / {data.capacity}
-          </div>
-          {/* Visual queue dots */}
-          {data.simState.queueLength > 0 && (
-            <div className="flex gap-1 mt-1 flex-wrap max-w-[120px]">
-              {Array.from({ length: Math.min(data.simState.queueLength, 5) }).map((_, i) => (
-                <div key={i} className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+          {queueLen > 0 && (
+            <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', maxWidth: 120, marginTop: 4 }}>
+              {Array.from({ length: Math.min(queueLen, 5) }).map((_, i) => (
+                <div
+                  key={i}
+                  style={{
+                    width: 8, height: 8,
+                    borderRadius: '50%',
+                    background: 'var(--primary)',
+                    opacity: 0.85,
+                  }}
+                />
               ))}
-              {data.simState.queueLength > 5 && (
-                <span className="text-[10px] text-gray-500">+{data.simState.queueLength - 5}</span>
+              {queueLen > 5 && (
+                <span style={{ fontSize: 10, color: 'var(--text-subtle)' }}>+{queueLen - 5}</span>
               )}
             </div>
           )}
         </div>
       )}
-      <Handle type="source" position={Position.Right} className="w-3 h-3 bg-indigo-500" />
+      <Handle
+        type="source"
+        position={Position.Right}
+        style={{ width: 10, height: 10, background: 'var(--primary)', border: '2px solid var(--bg-elevated)' }}
+      />
     </div>
   );
 }
 
 export function SinkNode({ data, selected }: NodeProps<NodeData>) {
   return (
-    <div className={`px-4 py-2 shadow-md rounded-md bg-gray-800 border-2 ${selected ? 'border-indigo-500' : 'border-gray-600'} min-w-[150px]`}>
-      <Handle type="target" position={Position.Left} className="w-3 h-3 bg-indigo-500" />
-      <div className="flex items-center gap-2 mb-2">
-        <LogOut className="w-5 h-5 text-red-400" />
-        <div className="font-bold text-gray-200">{data.label}</div>
+    <div style={{ ...nodeBase, ...(selected ? selectedStyle : {}) }}>
+      <Handle
+        type="target"
+        position={Position.Left}
+        style={{ width: 10, height: 10, background: 'var(--primary)', border: '2px solid var(--bg-elevated)' }}
+      />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+        <LogOut size={15} style={{ color: 'var(--error)', flexShrink: 0 }} />
+        <span style={{ fontWeight: 650, color: 'var(--text)', fontSize: 13 }}>{data.label}</span>
       </div>
-      <div className="text-xs text-gray-400">
-        Departures
-      </div>
+      <div style={metaRow}>Departures</div>
       {data.simState && (
-        <div className="mt-2 pt-2 border-t border-gray-700 text-xs text-red-400 flex items-center gap-1">
-          <Activity className="w-3 h-3" />
+        <div style={{ ...dividerStyle, ...metaRow, color: 'var(--chart-2)' }}>
+          <Activity size={11} />
           Completed: {data.simState.completed}
         </div>
       )}

@@ -1,16 +1,66 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Simulator from './components/Simulator';
 import Editor from './components/Editor';
 import Theory from './components/Theory';
-import { Activity, LayoutDashboard, Share2, BookOpen } from 'lucide-react';
+import {
+  Activity,
+  LayoutDashboard,
+  Share2,
+  BookOpen,
+  Trophy,
+  Sun,
+  Moon,
+  PanelLeftClose,
+  PanelLeftOpen,
+} from 'lucide-react';
 import { Node, Edge } from '@xyflow/react';
 import { NodeData } from './types';
+import { RunConfig } from './lib/engine';
+
+type TabId = 'theory' | 'challenges' | 'playground' | 'editor';
+type Theme = 'light' | 'dark';
+
+interface NavItemProps {
+  icon: React.ReactNode;
+  label: string;
+  active: boolean;
+  collapsed: boolean;
+  onClick: () => void;
+}
+
+function NavItem({ icon, label, active, collapsed, onClick }: NavItemProps) {
+  return (
+    <button
+      className={`nav-item${active ? ' is-active' : ''}`}
+      onClick={onClick}
+      title={collapsed ? label : undefined}
+      aria-current={active ? 'page' : undefined}
+    >
+      <span className="nav-icon">{icon}</span>
+      {!collapsed && <span className="nav-label">{label}</span>}
+    </button>
+  );
+}
+
+const NAV_ITEMS: { id: TabId; label: string; icon: React.ReactNode }[] = [
+  { id: 'theory',     label: 'Theory',          icon: <BookOpen size={18} /> },
+  { id: 'challenges', label: 'Challenges',       icon: <Trophy size={18} /> },
+  { id: 'playground', label: 'M/M/c Visualizer', icon: <LayoutDashboard size={18} /> },
+  { id: 'editor',     label: 'Model Explorer',   icon: <Share2 size={18} /> },
+];
+
+const TAB_TITLES: Record<TabId, { title: string; subtitle: string }> = {
+  theory:     { title: 'Theory',           subtitle: 'DES concepts and queueing fundamentals' },
+  challenges: { title: 'Challenges',       subtitle: 'Test your DES knowledge with assessed problems' },
+  playground: { title: 'M/M/c Visualizer', subtitle: 'Interactive simulation with live charts' },
+  editor:     { title: 'Model Explorer',   subtitle: 'Build, run and export DES models' },
+};
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'theory' | 'playground' | 'editor'>('theory');
-  
-  // Shared state for the node editor so it persists across tab changes
+  const [activeTab, setActiveTab] = useState<TabId>('theory');
+  const [theme, setTheme] = useState<Theme>('light');
+  const [collapsed, setCollapsed] = useState(false);
+
   const [nodes, setNodes] = useState<Node<NodeData>[]>([
     {
       id: '1',
@@ -43,64 +93,117 @@ function App() {
       },
     },
   ]);
-  
+
   const [edges, setEdges] = useState<Edge[]>([
-    { id: 'e1-2', source: '1', target: '2', animated: true, style: { stroke: '#6366f1', strokeWidth: 2 } },
-    { id: 'e2-3', source: '2', target: '3', animated: true, style: { stroke: '#6366f1', strokeWidth: 2 } },
+    { id: 'e1-2', source: '1', target: '2', animated: true, style: { stroke: 'var(--primary)', strokeWidth: 2 } },
+    { id: 'e2-3', source: '2', target: '3', animated: true, style: { stroke: 'var(--primary)', strokeWidth: 2 } },
   ]);
+  const [exampleConfig, setExampleConfig] = useState<Partial<RunConfig> | undefined>(undefined);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  const handleLoadExample = useCallback((
+    exNodes: Node<NodeData>[],
+    exEdges: Edge[],
+    cfg?: Partial<RunConfig>,
+  ) => {
+    setNodes(exNodes);
+    setEdges(exEdges);
+    if (cfg) setExampleConfig({ ...cfg }); // new object reference always re-triggers Editor effect
+    setActiveTab('editor');
+  }, []);
+
+  const { title, subtitle } = TAB_TITLES[activeTab];
 
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-200 font-sans selection:bg-indigo-500/30">
-      <div className="container mx-auto p-4 sm:p-6 lg:p-8 max-w-7xl">
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 pb-6 border-b border-gray-800">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-indigo-500/20 rounded-xl flex items-center justify-center border border-indigo-500/30">
-              <Activity className="w-6 h-6 text-indigo-400" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">
-                DES Playground
-              </h1>
-              <p className="text-sm text-gray-400 mt-1">
-                Interactive Discrete Event Simulation & Queueing Theory
-              </p>
-            </div>
+    <div className="app-shell" data-theme={theme}>
+      {/* Sidebar */}
+      <aside className={`app-sidebar${collapsed ? ' is-collapsed' : ''}`} aria-label="Main navigation">
+        <div className="sidebar-brand">
+          <div className="sidebar-brand-mark" aria-hidden="true">
+            <Activity size={16} style={{ color: 'var(--text-on-primary)' }} />
           </div>
-          
-          <div className="flex bg-gray-800 p-1 rounded-lg border border-gray-700">
-            <button
-              onClick={() => setActiveTab('theory')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium text-sm transition-colors ${activeTab === 'theory' ? 'bg-indigo-500/20 text-indigo-400' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700'}`}
-            >
-              <BookOpen className="w-4 h-4" />
-              Theory
-            </button>
-            <button
-              onClick={() => setActiveTab('playground')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium text-sm transition-colors ${activeTab === 'playground' ? 'bg-indigo-500/20 text-indigo-400' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700'}`}
-            >
-              <LayoutDashboard className="w-4 h-4" />
-              M/M/c Visualizer
-            </button>
-            <button
-              onClick={() => setActiveTab('editor')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium text-sm transition-colors ${activeTab === 'editor' ? 'bg-indigo-500/20 text-indigo-400' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700'}`}
-            >
-              <Share2 className="w-4 h-4" />
-              Model Explorer
-            </button>
-          </div>
-        </header>
+          {!collapsed && (
+            <div style={{ overflow: 'hidden' }}>
+              <div className="sidebar-brand-name">DES Playground</div>
+              <div className="sidebar-brand-sub">Discrete Event Simulation</div>
+            </div>
+          )}
+        </div>
 
-        <main>
+        <nav className="sidebar-nav" aria-label="Pages">
+          {!collapsed && (
+            <div className="sidebar-group-label">Workspace</div>
+          )}
+          {NAV_ITEMS.map(item => (
+            <NavItem
+              key={item.id}
+              icon={item.icon}
+              label={item.label}
+              active={activeTab === item.id}
+              collapsed={collapsed}
+              onClick={() => setActiveTab(item.id)}
+            />
+          ))}
+        </nav>
+
+        <div className="sidebar-footer">
+          <button
+            className="nav-item"
+            onClick={() => setCollapsed(c => !c)}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            style={{ justifyContent: collapsed ? 'center' : undefined }}
+          >
+            <span className="nav-icon">
+              {collapsed
+                ? <PanelLeftOpen size={18} />
+                : <PanelLeftClose size={18} />}
+            </span>
+            {!collapsed && <span className="nav-label">Collapse</span>}
+          </button>
+        </div>
+      </aside>
+
+      {/* Main area */}
+      <div className="app-main">
+        <div className="app-toolbar">
+          <div>
+            <div className="toolbar-title">{title}</div>
+            <div className="toolbar-subtitle">{subtitle}</div>
+          </div>
+
+          <button
+            className="icon-btn"
+            onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+            title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+            aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+          >
+            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
+        </div>
+
+        <main className="app-content" id="main-content">
+          {(activeTab === 'theory' || activeTab === 'challenges') && (
+            <Theory
+              key={activeTab}
+              onLoadExample={handleLoadExample}
+              initialSection={activeTab === 'challenges' ? 'challenges' : 'lessons'}
+            />
+          )}
           {activeTab === 'playground' && <Simulator />}
-          {activeTab === 'editor' && <Editor nodes={nodes} setNodes={setNodes} edges={edges} setEdges={setEdges} />}
-          {activeTab === 'theory' && <Theory />}
+          {activeTab === 'editor'     && (
+            <Editor
+              nodes={nodes}
+              setNodes={setNodes}
+              edges={edges}
+              setEdges={setEdges}
+              exampleConfig={exampleConfig}
+            />
+          )}
         </main>
-        
-        <footer className="text-center mt-12 pt-8 border-t border-gray-800 text-gray-500 text-sm">
-          <p>Learn Queueing Theory visually. Build models and export them to SimPy.</p>
-        </footer>
       </div>
     </div>
   );
