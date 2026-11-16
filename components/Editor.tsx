@@ -21,7 +21,7 @@ import { NodeData, DistributionType, DistributionParams } from '../types';
 import {
   PlayCircle, Server, LogOut, Settings, Play, Pause, RotateCcw,
   BarChart3, ShieldCheck, ChevronRight, ChevronLeft, ChevronsRight, ChevronsLeft,
-  Flag, Layers, GitCompare, Code2,
+  Flag, Layers, GitCompare, Code2, Minimize2, Maximize2,
 } from 'lucide-react';
 import { LineChart, BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { cn } from '../lib/utils';
@@ -60,6 +60,13 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
   const [selectedNode, setSelectedNode] = useState<Node<NodeData> | null>(null);
+  const [isCanvasCompact, setIsCanvasCompact] = useState(false);
+
+  useEffect(() => {
+    if (!reactFlowInstance) return;
+    const frame = requestAnimationFrame(() => reactFlowInstance.fitView({ padding: 0.2 }));
+    return () => cancelAnimationFrame(frame);
+  }, [isCanvasCompact, reactFlowInstance]);
 
   // Validation state
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
@@ -559,23 +566,16 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
       {/* Editor workspace */}
       <div style={{
         display: 'flex',
-        height: 600,
+        flexDirection: 'column',
         border: '1px solid var(--border)',
         borderRadius: 'var(--radius)',
         overflow: 'hidden',
         background: 'var(--canvas-bg)',
       }}>
         {/* Node palette */}
-        <div style={{
-          width: 200,
-          background: 'var(--bg-elevated)',
-          borderRight: '1px solid var(--border)',
-          padding: '14px 10px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 6,
-        }}>
-          <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-subtle)', padding: '0 4px 6px' }}>
+        <div className="editor-component-toolbar">
+          <div className="editor-component-palette" role="group" aria-label="Components">
+          <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-subtle)' }}>
             Components
           </div>
 
@@ -590,6 +590,7 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
               onDragStart={(e) => { e.dataTransfer.setData('application/reactflow', item.type); e.dataTransfer.effectAllowed = 'move'; }}
               style={{
                 display: 'flex', alignItems: 'center', gap: 8,
+                flexShrink: 0,
                 padding: '7px 10px',
                 borderRadius: 'var(--radius-sm)',
                 border: '1px solid var(--border)',
@@ -606,14 +607,16 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
               <span>{item.label}</span>
             </div>
           ))}
+          </div>
 
-          <div style={{ marginTop: 'auto', fontSize: 11, color: 'var(--text-subtle)', padding: '8px 4px', lineHeight: 1.4 }}>
+          <div className="editor-component-hint">
             Drag nodes onto the canvas. Connect by dragging handles.
           </div>
         </div>
 
+        <div style={{ display: 'flex', height: isCanvasCompact ? 320 : 600, minWidth: 0 }}>
         {/* React Flow canvas */}
-        <div style={{ flex: 1, position: 'relative', minWidth: 0 }} ref={reactFlowWrapper}>
+        <div id="model-canvas" style={{ flex: 1, position: 'relative', minWidth: 0 }} ref={reactFlowWrapper}>
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -631,6 +634,19 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
           >
             <Background color="var(--border)" gap={20} size={1} />
             <Controls />
+            <Panel position="top-right">
+              <button
+                type="button"
+                className="ui-btn ui-btn--sm"
+                onClick={() => setIsCanvasCompact(compact => !compact)}
+                title={isCanvasCompact ? 'Expand canvas height' : 'Shrink canvas height'}
+                aria-controls="model-canvas"
+                aria-expanded={!isCanvasCompact}
+              >
+                {isCanvasCompact ? <Maximize2 size={14} /> : <Minimize2 size={14} />}
+                {isCanvasCompact ? 'Expand canvas' : 'Shrink canvas'}
+              </button>
+            </Panel>
           </ReactFlow>
         </div>
 
@@ -783,6 +799,7 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
             </div>
           </div>
         )}
+        </div>
       </div>
 
       {/* Server state visualizer (playback-driven) */}

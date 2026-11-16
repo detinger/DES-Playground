@@ -367,6 +367,31 @@ body {
   font-size: 13px;
 }
 
+.editor-component-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+  padding: 10px 14px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+}
+
+.editor-component-palette {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.editor-component-hint {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-subtle);
+  line-height: 1.4;
+}
+
 /* DES canvas nodes */
 .des-node {
   background: var(--des-fill);
