@@ -49,9 +49,44 @@ function DifficultyBadge({ d }: { d: 1 | 2 | 3 }) {
   const map: Record<number, [string, string]> = {
     1: ['Beginner',     'var(--success)'],
     2: ['Intermediate', 'var(--warning)'],
-    3: ['Advanced',     'var(--error)'],
+    3: ['Hard',         'var(--error)'],
   };
   return <Badge text={map[d][0]} color={map[d][1]} />;
+}
+
+type DifficultyFilterValue = 'all' | '1' | '2' | '3';
+
+function DifficultyFilter({ value, onChange, count }: {
+  value: DifficultyFilterValue;
+  onChange: (value: DifficultyFilterValue) => void;
+  count: number;
+}) {
+  return (
+    <label style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', fontSize: 13, color: 'var(--text-muted)' }}>
+      Difficulty
+      <select value={value} onChange={e => onChange(e.target.value as DifficultyFilterValue)} style={{ padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', font: 'inherit', background: 'var(--bg)', color: 'var(--text)' }}>
+        <option value="all">All levels</option>
+        <option value="1">Beginner</option>
+        <option value="2">Intermediate</option>
+        <option value="3">Hard</option>
+      </select>
+      <span aria-live="polite">{count} shown</span>
+    </label>
+  );
+}
+
+function ExperimentSteps({ steps }: { steps?: string[] }) {
+  if (!steps?.length) return null;
+  return (
+    <div>
+      <div style={{ fontSize: 11, fontWeight: 650, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--accent)', marginBottom: 6 }}>
+        Try the experiment
+      </div>
+      <ol style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {steps.map(step => <li key={step} style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>{step}</li>)}
+      </ol>
+    </div>
+  );
 }
 
 // ── Lesson visualizations ─────────────────────────────────────────────────────
@@ -616,19 +651,24 @@ function LessonsTab({ onGoToExample }: { onGoToExample: (id: string) => void }) 
 
 function ExamplesTab({ onLoad, highlightedId }: { onLoad: (ex: ExampleModel) => void; highlightedId: string | null }) {
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [difficulty, setDifficulty] = useState<DifficultyFilterValue>('all');
+  const examples = EXAMPLES.filter(ex => difficulty === 'all' || String(ex.difficulty ?? 1) === difficulty);
+
+  useEffect(() => { if (highlightedId) setDifficulty('all'); }, [highlightedId]);
 
   useEffect(() => {
     if (highlightedId && cardRefs.current[highlightedId]) {
       cardRefs.current[highlightedId]!.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
-  }, [highlightedId]);
+  }, [highlightedId, difficulty]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-        Pre-configured models illustrating key queueing concepts. Click <strong>Load in Editor</strong> to send the model to the Model Explorer, then click <strong>Run</strong> to simulate and compare results with the M/M/c Theory panel.
+        Explore core queueing models and eight fictional IT case studies, from beginner pipelines to hard capacity decisions. All durations are in minutes. Click <strong>Load in Editor</strong>, then <strong>Run</strong>. Use Scenario Comparison for experiments; the M/M/c Theory panel applies only to compatible single-stage models.
       </p>
-      {EXAMPLES.map(ex => {
+      <DifficultyFilter value={difficulty} onChange={setDifficulty} count={examples.length} />
+      {examples.map(ex => {
         const isHighlighted = ex.id === highlightedId;
         return (
         <div
@@ -638,12 +678,13 @@ function ExamplesTab({ onLoad, highlightedId }: { onLoad: (ex: ExampleModel) => 
         >
           <div style={{
             display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
-            gap: 12, padding: '16px 20px', borderBottom: '1px solid var(--border)',
+            gap: 12, flexWrap: 'wrap', padding: '16px 20px', borderBottom: '1px solid var(--border)',
             background: 'var(--bg-subtle)',
           }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <Badge text={ex.badge} color="var(--accent)" />
+                <DifficultyBadge d={ex.difficulty ?? 1} />
                 <span style={{ fontWeight: 650, fontSize: 14, color: 'var(--text)' }}>{ex.name}</span>
               </div>
               <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5, maxWidth: '72ch' }}>
@@ -674,7 +715,7 @@ function ExamplesTab({ onLoad, highlightedId }: { onLoad: (ex: ExampleModel) => 
             </div>
 
             {/* Parameters + expected KPIs */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))', gap: 10 }}>
               {[
                 { label: 'Parameters',    value: ex.parameters },
                 { label: 'Expected KPIs', value: ex.expectedKpis },
@@ -688,6 +729,12 @@ function ExamplesTab({ onLoad, highlightedId }: { onLoad: (ex: ExampleModel) => 
                 </div>
               ))}
             </div>
+            {ex.assumptions && (
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                <strong>Model assumptions: </strong>{ex.assumptions}
+              </p>
+            )}
+            <ExperimentSteps steps={ex.experiment} />
           </div>
         </div>
         );
@@ -707,6 +754,8 @@ function ChallengesTab({
   const [selected, setSelected] = useState<Record<string, number>>({});
   const [submitted, setSubmitted] = useState<Record<string, boolean>>({});
   const [hintsShown, setHintsShown] = useState<Record<string, number>>({});
+  const [difficulty, setDifficulty] = useState<DifficultyFilterValue>('all');
+  const challenges = CHALLENGES.filter(ch => difficulty === 'all' || String(ch.difficulty) === difficulty);
 
   const markComplete = (id: string) => {
     setCompleted(prev => {
@@ -753,7 +802,7 @@ function ChallengesTab({
       )}
       {/* Progress bar */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 12,
+        display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
         padding: '12px 16px', borderRadius: 'var(--radius)',
         background: 'var(--bg-elevated)', border: '1px solid var(--border)',
         boxShadow: 'var(--shadow-sm)',
@@ -774,7 +823,11 @@ function ChallengesTab({
         })}
       </div>
 
-      {CHALLENGES.map(ch => {
+      <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+        Solve the question, then load its related model to test your reasoning. The eight IT challenges also include hands-on experiments. Completion records the correct answer; experiments are self-guided.
+      </p>
+      <DifficultyFilter value={difficulty} onChange={setDifficulty} count={challenges.length} />
+      {challenges.map(ch => {
         const isDone      = completed.has(ch.id);
         const isSubmitted = submitted[ch.id] ?? false;
         const selectedIdx = selected[ch.id];
@@ -932,34 +985,37 @@ function ChallengesTab({
                 const relEx = EXAMPLES.find(e => e.id === ch.exampleId);
                 if (!relEx) return null;
                 return (
-                  <div style={{
-                    display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px',
-                    background: 'color-mix(in srgb, var(--accent) 7%, var(--bg-sunken))',
-                    border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)',
-                    borderRadius: 'var(--radius-sm)',
-                  }}>
-                    <FlaskConical size={16} style={{ color: 'var(--accent)', flexShrink: 0 }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 11, fontWeight: 650, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--accent)', marginBottom: 2 }}>
-                        Related example
+                  <React.Fragment>
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', padding: '12px 16px',
+                      background: 'color-mix(in srgb, var(--accent) 7%, var(--bg-sunken))',
+                      border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)',
+                      borderRadius: 'var(--radius-sm)',
+                    }}>
+                      <FlaskConical size={16} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 11, fontWeight: 650, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--accent)', marginBottom: 2 }}>
+                          Related example
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          <Badge text={relEx.badge} color="var(--accent)" />
+                          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{relEx.name}</span>
+                        </div>
+                        <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                          {relEx.description}
+                        </p>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                        <Badge text={relEx.badge} color="var(--accent)" />
-                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{relEx.name}</span>
-                      </div>
-                      <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 }}>
-                        {relEx.description}
-                      </p>
+                      <button
+                        onClick={() => onLoadExample(relEx)}
+                        className="ui-btn ui-btn--primary"
+                        style={{ flexShrink: 0, fontSize: 12 }}
+                        title="Load this example into the Model Explorer"
+                      >
+                        <ExternalLink size={12} /> Load in Editor
+                      </button>
                     </div>
-                    <button
-                      onClick={() => onLoadExample(relEx)}
-                      className="ui-btn ui-btn--primary"
-                      style={{ flexShrink: 0, fontSize: 12 }}
-                      title="Load this example into the Model Explorer"
-                    >
-                      <ExternalLink size={12} /> Load in Editor
-                    </button>
-                  </div>
+                    <ExperimentSteps steps={relEx.experiment} />
+                  </React.Fragment>
                 );
               })()}
             </div>
@@ -974,7 +1030,7 @@ function ChallengesTab({
 
 export default function Theory({ onLoadExample, section, highlightedExampleId, onGoToExample }: TheoryProps) {
   const handleLoadExample = (ex: ExampleModel) => {
-    onLoadExample(ex.nodes as Node<NodeData>[], ex.edges as Edge[], ex.config);
+    onLoadExample(structuredClone(ex.nodes) as Node<NodeData>[], structuredClone(ex.edges) as Edge[], { ...ex.config });
   };
 
   return (

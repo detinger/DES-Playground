@@ -12,8 +12,8 @@ An interactive learning environment for **Discrete Event Simulation (DES)** and 
 |---|---|
 | **Home** | Learning overview, challenge progress, current model summary, appearance options and confirmed data reset |
 | **Lessons** | 7 accordion lessons (DES fundamentals → code export) with inline visualizations |
-| **Examples** | 5 pre-built models (M/M/1, M/M/2, M/D/1, production line, two-stage) — load any into the editor |
-| **Challenges** | 5 assessed problems with progressive hints, answer validation, and linked examples |
+| **Examples** | 13 pre-built models, including 8 IT case studies across three difficulty levels — load any into the editor |
+| **Challenges** | 13 assessed problems with progressive hints, answer validation, linked models, and IT experiments |
 | **M/M/c Visualizer** | Interactive Erlang-C playground with live Lq / Wq / ρ charts |
 | **Model Explorer** | Drag-and-drop DES canvas; run replications with CI; event-step playback; scenario comparison |
 | **Code Export** | Auto-generate SimPy (Python) and R simmer scripts from any model; copy or download |
@@ -22,6 +22,23 @@ An interactive learning environment for **Discrete Event Simulation (DES)** and 
 ---
 
 The sidebar groups Lessons, Examples and Challenges under **Learn**, with the visualizer and model editor under **Workspace**. **Home** is the default landing page. Challenge progress and appearance preferences are stored in this browser; models and simulation results are held in memory. Clearing app data resets progress and preferences and restores the starter model, without affecting downloaded files or unrelated browser storage.
+
+## IT examples and challenges
+
+Each fictional workload includes a runnable model, explicit assumptions, expected capacity calculations, a three-step experiment, and a linked assessed challenge. Use the difficulty filters in **Examples** and **Challenges**, then **Load in Editor** to run a model.
+
+| Level | Scenario | Main decision |
+|---|---|---|
+| Beginner | Monday morning help desk | Where to add an agent in a two-stage service |
+| Beginner | Build farm traffic jam | How the bottleneck moves after adding test runners |
+| Intermediate | Creator uploads and noisy transcoders | Reduce runtime variability or buy capacity |
+| Intermediate | Security operations alert surge | Staff multiple overloaded stages |
+| Intermediate | Dashboard freshness deadline | Improve a four-stage analytics pipeline |
+| Hard | GPU capacity under a launch budget | Meet per-stage headroom limits at minimum cost |
+| Hard | Disaster recovery retry backlog | Repair an intentionally unstable pipeline |
+| Hard | Noisy neighbours in shared ingestion | Admit new tenant traffic within a capacity ceiling |
+
+All durations are in minutes. Models use FIFO queues, fixed parallel worker pools, and sequential stages supported by the browser and both exporters. Independent Poisson streams with identical job requirements are aggregated into one source. They do not simulate priorities, feedback retries, dynamic autoscaling, or fork/join execution. Challenge completion records the correct answer; simulation experiments are self-guided.
 
 ## Tech stack
 
@@ -73,6 +90,7 @@ lib/
   validator.ts             # model validation rules
   theory.ts                # M/M/c Erlang-C, detectMMc()
   theoryContent.ts         # lessons, examples, challenges data
+  itLearningContent.ts     # 8 IT models and linked challenges
   simpyGenerator.ts        # SimPy code generator
   simmerGenerator.ts       # R simmer code generator
   prng.ts                  # mulberry32 seeded PRNG

@@ -1,4 +1,5 @@
 // Static content for the Theory learning hub — lessons, example models, challenges.
+import { IT_EXAMPLES, IT_CHALLENGES } from './itLearningContent';
 
 // ── Lessons ───────────────────────────────────────────────────────────────────
 
@@ -128,6 +129,9 @@ export interface ExampleModel {
   objectives: string[];
   parameters: string;
   expectedKpis: string;
+  difficulty?: 1 | 2 | 3;
+  assumptions?: string;
+  experiment?: string[];
   nodes: any[];
   edges: any[];
   config: { horizon: number; warmup: number; seed: number; replications: number };
@@ -138,6 +142,7 @@ const edgeStyle = { stroke: '#6366f1', strokeWidth: 2 };
 export const EXAMPLES: ExampleModel[] = [
   {
     id: 'det-single',
+    difficulty: 1,
     badge: 'M/D/1',
     name: 'Deterministic single server',
     description: 'Constant interarrival and service times with one server. Arrivals at a fixed interval — no randomness, fully predictable event trace. Use this to verify event ordering by hand.',
@@ -161,6 +166,7 @@ export const EXAMPLES: ExampleModel[] = [
   },
   {
     id: 'mm1',
+    difficulty: 1,
     badge: 'M/M/1',
     name: 'M/M/1 queue',
     description: 'The canonical single-server queue with Poisson arrivals and exponential service. The simplest system with analytical steady-state formulas. Run it and compare the simulation output with the M/M/c Theory panel.',
@@ -184,6 +190,7 @@ export const EXAMPLES: ExampleModel[] = [
   },
   {
     id: 'mm2',
+    difficulty: 1,
     badge: 'M/M/2',
     name: 'M/M/2 queue — adding a second server',
     description: 'Same arrival and service rates as the M/M/1 example, but with two parallel servers. ρ per server halves from 0.8 to 0.4. Waiting times drop dramatically — a direct demonstration of capacity\'s nonlinear effect.',
@@ -207,6 +214,7 @@ export const EXAMPLES: ExampleModel[] = [
   },
   {
     id: 'md1',
+    difficulty: 2,
     badge: 'M/D/1',
     name: 'M/D/1 queue — deterministic service',
     description: 'Poisson arrivals but constant (deterministic) service time. Same ρ = 0.8 as the M/M/1 example. Deterministic service has zero variability — theory predicts Wq is exactly half of the M/M/1 value.',
@@ -230,6 +238,7 @@ export const EXAMPLES: ExampleModel[] = [
   },
   {
     id: 'prod-line',
+    difficulty: 2,
     badge: 'Sequential',
     name: 'Production line — two stations',
     description: 'Two service stations in series. Each entity visits Station 1 then Station 2 before departing. Station 2 is the bottleneck (higher ρ). Use this to practise bottleneck identification from utilisation metrics.',
@@ -253,6 +262,7 @@ export const EXAMPLES: ExampleModel[] = [
     ],
     config: { horizon: 1000, warmup: 100, seed: 42, replications: 3 },
   },
+  ...IT_EXAMPLES,
 ];
 
 // ── Challenges ────────────────────────────────────────────────────────────────
@@ -366,4 +376,5 @@ export const CHALLENGES: Challenge[] = [
     explanation: 'At t = 0, the queue is empty regardless of the true steady-state load. Early entities experience artificially short waits, biasing Wq and W downward. Excluding a warm-up period (typically 10–20% of the horizon) removes this cold-start effect. Load the M/M/1 example and try setting warm-up to 0 vs 200 — compare the resulting Wq values.',
     exampleId: 'mm1',
   },
+  ...IT_CHALLENGES,
 ];
