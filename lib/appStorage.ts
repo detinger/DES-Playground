@@ -1,6 +1,6 @@
 import { CHALLENGES } from './theoryContent';
 
-export const APP_STORAGE_KEYS = ['des-challenges', 'des-theme', 'des-sidebar-collapsed'] as const;
+export const APP_STORAGE_KEYS = ['des-challenges', 'des-theme', 'des-sidebar-collapsed', 'des-model-library', 'des-model-autosave'] as const;
 
 export function readPreference(key: string): string | null {
   try { return localStorage.getItem(key); } catch { return null; }

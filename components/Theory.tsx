@@ -1,5 +1,5 @@
 import FormalModel from './FormalModel';
-import CaseStudyLab from './CaseStudyLab';
+
 import { compileModel } from '../lib/compiler';
 import { MathText, MathFormula } from './Math';
 import React, { useState, useEffect, useRef } from 'react';
@@ -566,10 +566,6 @@ function LessonsTab({ onGoToExample }: { onGoToExample: (id: string) => void }) 
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-        <a className="reference-link" href="/references/queueing-theory.pdf" target="_blank" rel="noreferrer">Queueing Theory · lecture PDF</a>
-        <a className="reference-link" href="/references/discrete-event-simulation.pdf" target="_blank" rel="noreferrer">Discrete-event simulation · lecture PDF</a>
-      </div>
       {LESSONS.map(lesson => {
         const isOpen = expanded === lesson.level;
         return (
@@ -675,7 +671,6 @@ function LessonsTab({ onGoToExample }: { onGoToExample: (id: string) => void }) 
 function ExamplesTab({ onLoad, highlightedId }: { onLoad: (ex: ExampleModel) => void; highlightedId: string | null }) {
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [difficulty, setDifficulty] = useState<DifficultyFilterValue>('all');
-  const [openLab, setOpenLab] = useState<string | null>(null);
   const examples = EXAMPLES.filter(ex => difficulty === 'all' || String(ex.difficulty ?? 1) === difficulty);
 
   useEffect(() => { if (highlightedId) setDifficulty('all'); }, [highlightedId]);
@@ -689,7 +684,7 @@ function ExamplesTab({ onLoad, highlightedId }: { onLoad: (ex: ExampleModel) => 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-        Explore queueing models, Clinic, Factory, Inventory and IT case studies. Clinic and editor models use minutes; Factory uses working hours and Inventory uses days. Click <strong>Load in Editor</strong>, then <strong>Run</strong>. Use Scenario Comparison for experiments; the M/M/c Theory panel applies only to compatible single-stage models.
+        Explore queueing models, Clinic, Factory, Inventory and IT case studies. Clinic and editor models use minutes; Factory uses working hours and Inventory uses days. Open the model in Queue Modeler or DES Modeler, then select <strong>Run</strong>. Use Scenario Comparison for experiments; the M/M/c Theory panel applies only to compatible single-stage models.
       </p>
       <DifficultyFilter value={difficulty} onChange={setDifficulty} count={examples.length} />
       {examples.map(ex => {
@@ -716,12 +711,12 @@ function ExamplesTab({ onLoad, highlightedId }: { onLoad: (ex: ExampleModel) => 
               </p>
             </div>
             <button
-              onClick={() => ex.caseStudy ? setOpenLab(openLab === ex.id ? null : ex.id) : onLoad(ex)}
+              onClick={() => onLoad(ex)}
               className="ui-btn ui-btn--primary"
               style={{ flexShrink: 0 }}
-              title={ex.caseStudy ? "Open the interactive case-study lab" : "Load this model into the Model Explorer"}
+              title="Load this editable model"
             >
-              <ExternalLink size={13} /> {ex.caseStudy ? (openLab === ex.id ? 'Close lab' : 'Open lab') : 'Load in Editor'}
+              <ExternalLink size={13} /> {ex.config.unit === 'hour' || ex.config.unit === 'day' ? 'Open DES Modeler' : 'Open Queue Modeler'}
             </button>
           </div>
 
@@ -759,10 +754,7 @@ function ExamplesTab({ onLoad, highlightedId }: { onLoad: (ex: ExampleModel) => 
               </p>
             )}
             <ExperimentSteps steps={ex.experiment} />
-            {ex.sourceFile && <a href={`/references/${ex.sourceFile}`} target="_blank" rel="noreferrer" className="reference-link">Source notebook: {ex.sourceFile}</a>}
-            {ex.caseStudy
-              ? openLab === ex.id && <CaseStudyLab kind={ex.caseStudy} />
-              : <FormalModel model={compileModel(ex.nodes, ex.edges, { name: ex.name })} />}
+            <FormalModel model={compileModel(ex.nodes, ex.edges, { name: ex.name, unit: ex.config.unit })} />
 
           </div>
         </div>
@@ -824,7 +816,7 @@ function ChallengesTab({
           <div>
             <div style={{ fontWeight: 650, fontSize: 14, color: 'var(--text)' }}>All challenges complete!</div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-              You've mastered the core DES concepts. Try loading examples from the Examples tab and experimenting with the Model Explorer.
+              You've mastered the core DES concepts. Try loading examples from the Examples tab and experimenting with the Queue Modeler.
             </div>
           </div>
         </div>
@@ -1038,7 +1030,7 @@ function ChallengesTab({
                         onClick={() => onLoadExample(relEx)}
                         className="ui-btn ui-btn--primary"
                         style={{ flexShrink: 0, fontSize: 12 }}
-                        title="Load this example into the Model Explorer"
+                        title="Load this example into the Queue Modeler"
                       >
                         <ExternalLink size={12} /> Load in Editor
                       </button>

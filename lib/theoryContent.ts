@@ -126,9 +126,9 @@ export const LESSONS: Lesson[] = [
     level: 8,
     title: 'Formal Models — Activities, Queues and Tokens',
     paragraphs: [
-      'The supplied discrete-event simulation lecture describes an activity-cycle model as a tuple of activities A, places Q, input mapping I, output mapping O, duration function τ and initial token counts μ₀. Entity tokens represent patients, jobs or products; resource tokens represent available workers or machines.',
+      'An activity-cycle model is a tuple of activities A, places Q, input mapping I, output mapping O, duration function τ and initial token counts μ₀. Entity tokens represent patients, jobs or products; resource tokens represent available workers or machines.',
       'An activity starts when its required input tokens are available. It consumes those tokens, schedules completion after its sampled duration, and releases output tokens when it completes. For service, one waiting entity and one idle resource token are consumed; completion returns the resource token and sends the entity to the next queue. FIFO determines which waiting entity is selected.',
-      'Expand Formal model on any example, in the Model Explorer, or in the M/M/c Visualizer to inspect the instantiated activities, distributions, resource counts and state rules. Editing a distribution or capacity updates the specification. Factory and Inventory have dedicated state transitions because repairs, spare stock and replenishment cannot be represented by an open service chain alone.',
+      'Expand Formal model on any example, in the Queue Modeler, or in the M/M/c Visualizer to inspect the instantiated activities, distributions, resource counts and state rules. Editing a distribution or capacity updates the specification. Factory and Inventory open in DES Modeler, where stores, shared resources, conditions and cycles specify their state transitions.',
       'A complete event-driven state also includes the ordered entity queues and the future-event calendar. Counts alone are not sufficient for general service distributions: scheduled completion times retain the information needed to advance the simulation.',
     ],
     keyFact: 'A service completion returns the resource token and moves the entity forward. It does not put that entity back into the same waiting queue unless the model explicitly contains that loop.',
@@ -141,8 +141,6 @@ export const LESSONS: Lesson[] = [
 
 export interface ExampleModel {
   id: string;
-  caseStudy?: 'factory' | 'inventory';
-  sourceFile?: string;
   badge: string;
   name: string;
   description: string;
@@ -154,7 +152,7 @@ export interface ExampleModel {
   experiment?: string[];
   nodes: any[];
   edges: any[];
-  config: { horizon: number; warmup: number; seed: number; replications: number };
+  config: { horizon: number; warmup: number; seed: number; replications: number; unit?: import('./model').TimeUnit; stopMode?: 'horizon' | 'drain' };
 }
 
 const edgeStyle = { stroke: '#6366f1', strokeWidth: 2 };
@@ -318,7 +316,7 @@ export const CHALLENGES: Challenge[] = [
       'λ = 1 / 5 = 0.2 arrivals/min. Now convert mean service time 4 min to service rate μ.',
       'μ = 1 / 4 = 0.25 services/min. ρ = λ/μ = 0.2 / 0.25 = ?',
     ],
-    explanation: 'ρ = λ/μ = 0.2 / 0.25 = 0.8. At 80% utilisation this M/M/1 queue has theory Wq = ρ / (μ − λ) = 0.8 / 0.05 = 16 min. Load the M/M/1 example below and verify this in the Model Explorer.',
+    explanation: 'ρ = λ/μ = 0.2 / 0.25 = 0.8. At 80% utilisation this M/M/1 queue has theory Wq = ρ / (μ − λ) = 0.8 / 0.05 = 16 min. Load the M/M/1 example below and verify this in the Queue Modeler.',
     exampleId: 'mm1',
   },
   {

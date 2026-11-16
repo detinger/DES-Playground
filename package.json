@@ -23,8 +23,10 @@
     "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
+    "@testing-library/react": "^16.3.3",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "jsdom": "^31.0.1",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
   }

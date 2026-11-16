@@ -123,7 +123,7 @@ export default function CodeExport({ model, config }: CodeExportProps) {
           <li>Ensure Python 3.9+ is installed or open Google Colab.</li>
           <li>Install SimPy: <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, background: 'var(--bg-sunken)', border: '1px solid var(--border)', borderRadius: 4, padding: '1px 6px', color: 'var(--text)' }}>pip install simpy</code></li>
           <li>Download the generated script and run it, or paste into a Jupyter cell.</li>
-          <li>Metric definitions match the browser engine — time-weighted Lq and ρ̂, entity-cohort Wq and W.</li>
+          <li>The script embeds your graph, quantities, guards, costs and stopping rule, and prints replication summaries as JSON.</li>
         </ol>
       </div>
     </div>

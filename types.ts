@@ -1,21 +1,34 @@
+import type { AdvancedConfig, Distribution, NodeKind } from "./lib/model";
 
-export type DistributionType = 'exponential' | 'normal' | 'uniform' | 'constant' | 'triangular';
+export type DistributionType =
+  "exponential" | "normal" | "uniform" | "constant" | "triangular";
 
 export interface DistributionParams {
   type: DistributionType;
   mean?: number;
   stdDev?: number;
+  nonnegativePolicy?: "reject" | "truncate";
   min?: number;
   max?: number;
   mode?: number;
   value?: number;
 }
 
-export interface NodeData {
+export interface NodeData extends Record<string, unknown> {
   label: string;
-  type: 'source' | 'server' | 'sink';
+  type: NodeKind;
+  process?: AdvancedConfig;
+  quantityDistribution?: Distribution;
   distribution?: DistributionParams;
+  startTime?: number;
+  endTime?: number;
+  arrivalLimit?: number;
+  entityType?: string;
+  attributes?: Record<string, number>;
+  queueDiscipline?: "fifo" | "priority";
+  priorityAttribute?: string;
   capacity?: number; // For servers
+  simActive?: boolean;
   simState?: any; // Live simulation state for visualization
 }
 

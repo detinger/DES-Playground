@@ -1,3 +1,4 @@
+import { isExtendedModel } from './model';
 // M/M/c queueing theory — Erlang-C formula and steady-state metrics.
 
 import { DesModel } from './model';
@@ -65,6 +66,7 @@ export function mmcAnalysis(params: MMcParams): MMcResult {
 /** Classify a model as M/M/c if it has exactly one Source (exponential interarrival),
  *  one Server (exponential service), and one Sink. Returns null for other topologies. */
 export function detectMMc(model: DesModel): MMcParams | null {
+  if (isExtendedModel(model)) return null;
   const sources = model.nodes.filter(n => n.config.kind === 'source');
   const servers = model.nodes.filter(n => n.config.kind === 'server');
   const sinks   = model.nodes.filter(n => n.config.kind === 'sink');

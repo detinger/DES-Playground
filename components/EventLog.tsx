@@ -8,6 +8,7 @@ interface EventLogProps {
 }
 
 const KIND_META: Record<EventKind, { label: string; colorVar: string; bgVar: string }> = {
+  ...Object.fromEntries(['initial','decision','signal','stockChange','horizon','assign','batch','unbatch','join','shift'].map(k=>[k,{label:k,colorVar:'var(--text-muted)',bgVar:'var(--bg-subtle)'}])) as Record<'initial'|'decision'|'signal'|'stockChange'|'horizon'|'assign'|'batch'|'unbatch'|'join'|'shift', {label:string;colorVar:string;bgVar:string}>,
   arrival:      { label: 'Arrival',       colorVar: 'var(--success)',   bgVar: 'var(--success-soft)' },
   queueEnter:   { label: 'Queue Enter',   colorVar: 'var(--warning)',   bgVar: 'var(--warning-soft)' },
   serviceStart: { label: 'Service Start', colorVar: 'var(--primary)',   bgVar: 'var(--primary-soft)' },

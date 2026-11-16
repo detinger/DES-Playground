@@ -1,4 +1,4 @@
-import { mulberry32 } from './prng';
+import { mulberry32 } from '../../lib/prng';
 
 export interface CasePoint { time: number; stock: number; queue: number; down: number; balance: number; event: string }
 export interface CaseResult { points: CasePoint[]; metrics: { label: string; value: number; unit: string }[]; config: Record<string, number> }

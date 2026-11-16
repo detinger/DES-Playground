@@ -637,14 +637,65 @@ body {
 .formal-model summary span { margin-left: 8px; font-size: 12px; font-weight: 400; color: var(--text-subtle); }
 .formal-model-body { border-top: 1px solid var(--border); padding: 16px; display: grid; gap: 16px; }
 .formal-model-row { min-width: 0; font-size: 13px; }
-.formal-model-row p, .case-lab p { color: var(--text-muted); font-size: 13px; line-height: 1.6; margin: 4px 0; }
-.case-lab { display: grid; gap: 18px; min-width: 0; }
-.case-lab-controls { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
-.case-lab-controls label { display: grid; gap: 6px; font-size: 12px; color: var(--text-muted); }
-.case-lab-controls input { width: 140px; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-sunken); color: var(--text); }
-.case-metrics { display: grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap: 10px; }
-.case-baseline { font-size: 11px; color: var(--text-subtle); margin-top: 6px; }
-.case-event-log { max-height: 300px; overflow: auto; font-size: 12px; }
-.case-event-log table { width: 100%; text-align: left; border-collapse: collapse; }
-.case-event-log td, .case-event-log th { padding: 6px; border-bottom: 1px solid var(--border); }
-.reference-link { color: var(--primary); text-decoration: underline; font-size: 12px; }
+.formal-model-row p { color: var(--text-muted); font-size: 13px; line-height: 1.6; margin: 4px 0; }
+
+/* General DES modeling workspace */
+.des-modeler { display:flex; flex-direction:column; gap:16px; }
+.des-intro p { margin:0 0 12px; color:var(--text-muted); max-width:85ch; }
+.des-actions,.des-view-tabs { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.des-view-tabs span { font-size:12px; color:var(--text-muted); margin-left:auto; }
+.des-runbar { display:flex; gap:12px; align-items:end; flex-wrap:wrap; padding:14px; background:var(--bg-elevated); border:1px solid var(--border); border-radius:10px; }
+.des-runbar .des-field { max-width:195px; }
+.des-runbar input { width:100px; }
+.des-field { display:flex; flex-direction:column; gap:5px; font-size:12px; color:var(--text-muted); margin-bottom:8px; }
+.des-field input,.des-field select { min-width:0; width:100%; border:1px solid var(--border); border-radius:6px; padding:7px 8px; color:var(--text); background:var(--bg-sunken); font:inherit; }
+.des-fields { margin:10px 0; padding:10px; border:1px solid var(--border); border-radius:6px; min-width:0; }
+.des-fields legend { font-size:12px; color:var(--text-muted); }
+.des-workbench { border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+.des-palette { display:flex; flex-wrap:wrap; gap:6px; padding:12px; background:var(--bg-elevated); border-bottom:1px solid var(--border); }
+.des-palette button { cursor:grab; }
+.des-canvas-row { display:flex; min-height:360px; }
+.des-canvas { flex:1; min-width:0; background:var(--canvas-bg); }
+.des-properties { width:300px; flex-shrink:0; overflow:auto; padding:16px; border-left:1px solid var(--border); background:var(--bg-elevated); }
+.des-properties h3 { font-size:15px; margin:0 0 14px; }.des-properties p {font-size:12px;color:var(--text-muted);line-height:1.5;}
+.des-canvas-size { display:flex; gap:12px; align-items:center; flex-wrap:wrap; padding:10px; font-size:12px; color:var(--text-muted); background:var(--bg-elevated); }
+.process-node { position:relative; min-width:190px; max-width:220px; min-height:92px; border:1.5px solid var(--border); border-left:4px solid var(--primary); border-radius:10px; padding:12px 24px 20px 14px; background:var(--bg-elevated); color:var(--text); box-shadow:var(--shadow-sm); }
+.process-node strong { display:block; font-size:13px; max-width:175px; }.process-node small {display:block;font-size:10px;color:var(--text-muted);margin-top:5px;}
+.process-node-kind {display:block;font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-subtle);margin-bottom:5px;}
+.process-node.is-selected { outline:2px solid var(--primary); outline-offset:3px; }
+.process-node--store { border-radius:18px; border-color:var(--accent); }
+.process-node--resource { border-radius:35px; border-color:var(--success); }
+.process-node--decision { border-left-color:var(--warning); }
+.process-node--signal { border-left-color:var(--accent); }
+.process-port-label { position:absolute;right:7px;transform:translateY(-50%);font-size:8px;color:var(--text-subtle); }
+.process-node .process-association {position:absolute;bottom:3px;left:50%;transform:translateX(-50%);font-size:8px;}
+.des-formal {padding:20px;border:1px solid var(--border);border-radius:10px;background:var(--bg-elevated);}
+.des-formal p,.modeling-guide p,.modeling-guide li {font-size:13px;line-height:1.6;color:var(--text-muted);}
+.des-table-wrap {overflow:auto;max-height:560px;border:1px solid var(--border);border-radius:8px;background:var(--bg-elevated);}
+.des-table-wrap table {width:100%;border-collapse:collapse;font-size:12px;text-align:left;}
+.des-table-wrap td,.des-table-wrap th {padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top;}
+.des-table-wrap th {position:sticky;top:0;background:var(--bg-subtle);z-index:1;}
+.des-table-wrap caption {text-align:left;padding:12px;font-weight:650;}
+.des-table-wrap p {padding:12px;}.des-event-current {background:var(--primary-soft);}
+.des-error {color:var(--error);}.des-chart {height:300px;min-width:0;padding:12px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;}
+@media(max-width:850px){.des-properties{width:240px}.des-runbar{gap:8px}.des-view-tabs span{width:100%}.des-canvas-row{flex-direction:column;height:auto!important}.des-canvas{height:500px;flex:none}.des-properties{width:100%;max-height:420px;border-left:0;border-top:1px solid var(--border);}}
+
+.des-library, .des-experiments { border: 1px solid var(--border); border-radius: 12px; padding: 16px; background: var(--bg-elevated); margin: 12px 0; }
+.des-library .des-actions, .des-experiments .des-runbar { align-items: end; }
+.des-experiments summary { cursor: pointer; font-weight: 650; }
+.des-experiments select { max-width: 340px; }
+.process-input-label { position: absolute; left: 8px; font-size: 10px; color: var(--text-muted); transform: translateY(-50%); }
+.process-node--join { padding-left: 24px; }
+.process-node--assign { border-color: #818cf8; }
+.process-node--router { border-style: double; }
+.process-node--batch, .process-node--unbatch, .process-node--join { border-color: #0d9488; }
+
+.des-library .des-field, .des-experiments .des-field { min-width: 0; max-width: 100%; }
+.des-library select { max-width: min(420px, 75vw); }
+.des-experiments .des-runbar input { width: 150px; max-width: 100%; }
+
+.des-playback { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--primary); border-radius: 10px; background: var(--bg-elevated); }
+.des-playback .des-runbar { padding: 0; border: 0; }
+.des-playback p { margin: 0; font-size: 12px; color: var(--text-muted); }
+.des-playback input[type="range"] { width: 100%; }
+.process-node.is-active { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft), var(--shadow-sm); }

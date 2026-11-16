@@ -121,9 +121,9 @@ export default function SimmerCodeExport({ model, config }: SimmerCodeExportProp
         <div style={{ fontWeight: 650, fontSize: 14, color: 'var(--text)', marginBottom: 10 }}>How to run in RStudio or R console</div>
         <ol style={{ margin: 0, padding: '0 0 0 18px', display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, color: 'var(--text-muted)' }}>
           <li>Ensure R 4.1+ is installed or use RStudio / Posit Cloud.</li>
-          <li>Install packages: <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, background: 'var(--bg-sunken)', border: '1px solid var(--border)', borderRadius: 4, padding: '1px 6px', color: 'var(--text)' }}>install.packages(c("simmer", "simmer.plot"))</code></li>
+          <li>Install packages: <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, background: 'var(--bg-sunken)', border: '1px solid var(--border)', borderRadius: 4, padding: '1px 6px', color: 'var(--text)' }}>install.packages(c("simmer", "jsonlite"))</code></li>
           <li>Download the generated script and source it, or paste into an R console.</li>
-          <li>simmer computes time-weighted resource metrics automatically via <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, background: 'var(--bg-sunken)', border: '1px solid var(--border)', borderRadius: 4, padding: '1px 6px', color: 'var(--text)' }}>get_mon_resources()</code>.</li>
+          <li>The script uses a simmer trajectory to advance the ordered process calendar and prints model measurements as JSON. R uses its own random stream.</li>
         </ol>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Handle, Position, NodeProps } from '@xyflow/react';
+import { Handle, Position, NodeProps, Node } from '@xyflow/react';
 import { PlayCircle, Server, LogOut, Users, Activity } from 'lucide-react';
 import { NodeData } from '../../types';
 
@@ -34,7 +34,7 @@ const metaRow: React.CSSProperties = {
   gap: 4,
 };
 
-export function SourceNode({ data, selected }: NodeProps<NodeData>) {
+export function SourceNode({ data, selected }: NodeProps<Node<NodeData>>) {
   return (
     <div style={{ ...nodeBase, ...(selected ? selectedStyle : {}) }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
@@ -59,7 +59,7 @@ export function SourceNode({ data, selected }: NodeProps<NodeData>) {
   );
 }
 
-export function ServerNode({ data, selected }: NodeProps<NodeData>) {
+export function ServerNode({ data, selected }: NodeProps<Node<NodeData>>) {
   const busy = data.simState?.busyServers ?? 0;
   const capacity = data.capacity ?? 1;
   const queueLen = data.simState?.queueLength ?? 0;
@@ -116,7 +116,7 @@ export function ServerNode({ data, selected }: NodeProps<NodeData>) {
   );
 }
 
-export function SinkNode({ data, selected }: NodeProps<NodeData>) {
+export function SinkNode({ data, selected }: NodeProps<Node<NodeData>>) {
   return (
     <div style={{ ...nodeBase, ...(selected ? selectedStyle : {}) }}>
       <Handle

@@ -48,14 +48,14 @@ export default function Home({ onNavigate, nodeCount, edgeCount, theme, onThemeC
           <p>Your starting point for discrete event simulation. Explore the concepts, experiment with a model, and put your understanding to the test.</p>
         </div>
         <button className="ui-btn ui-btn--primary" onClick={() => onNavigate('editor')}>
-          Open Model Explorer <ArrowRight size={16} />
+          Open Queue Modeler <ArrowRight size={16} />
         </button>
       </section>
 
       <section className="home-summary" aria-label="Overview">
         <div className="kpi-tile"><div className="kpi-label">Learning library</div><div className="kpi-value">{LESSONS.length} lessons</div><div className="kpi-unit">{EXAMPLES.length} examples to explore</div></div>
         <div className="kpi-tile"><div className="kpi-label">Challenges completed</div><div className="kpi-value">{completed} <span className="home-count-total">/ {CHALLENGES.length}</span></div><progress aria-label="Challenge progress" value={completed} max={CHALLENGES.length} /></div>
-        <div className="kpi-tile"><div className="kpi-label">Current model</div><div className="kpi-value">{nodeCount} nodes</div><div className="kpi-unit">{edgeCount} connections · current session</div></div>
+        <div className="kpi-tile"><div className="kpi-label">Current queue model</div><div className="kpi-value">{nodeCount} nodes</div><div className="kpi-unit">{edgeCount} connections · current session</div></div>
       </section>
 
       <section aria-labelledby="home-learn">
@@ -74,13 +74,17 @@ export default function Home({ onNavigate, nodeCount, edgeCount, theme, onThemeC
       <section aria-labelledby="home-workspace">
         <div className="home-section-heading"><h2 id="home-workspace">Workspace</h2><p>Experiment, compare and build your own simulations.</p></div>
         <div className="home-workspace-grid">
+          <button className="home-workspace-card ui-card" onClick={() => onNavigate('des')}>
+            <span className="home-card-icon"><Share2 size={21} /></span>
+            <span><strong>DES Modeler</strong><span>Build processes with inventory, shared resources, decisions and cycles.</span></span><ArrowRight size={18} />
+          </button>
           <button className="home-workspace-card ui-card" onClick={() => onNavigate('playground')}>
             <span className="home-card-icon"><LayoutDashboard size={21} /></span>
             <span><strong>M/M/c Visualizer</strong><span>Adjust arrivals and service rates. Watch queues change live.</span></span><ArrowRight size={18} />
           </button>
           <button className="home-workspace-card ui-card" onClick={() => onNavigate('editor')}>
             <span className="home-card-icon"><Share2 size={21} /></span>
-            <span><strong>Model Explorer</strong><span>Build models, run experiments and export Python or R code.</span></span><ArrowRight size={18} />
+            <span><strong>Queue Modeler</strong><span>Build models, run experiments and export Python or R code.</span></span><ArrowRight size={18} />
           </button>
         </div>
       </section>
@@ -96,7 +100,7 @@ export default function Home({ onNavigate, nodeCount, edgeCount, theme, onThemeC
           <input id="home-sidebar" type="checkbox" checked={collapsed} onChange={e => onCollapsedChange(e.target.checked)} />
         </div>
         <div className="home-option-row home-data-row">
-          <div><strong>Clear all data</strong><span>Reset challenge progress, the current model and app preferences.</span><small>Challenge progress and preferences are saved in this browser. Models and simulation results last for the current session.</small></div>
+          <div><strong>Clear all data</strong><span>Reset challenge progress, saved models, current models and app preferences.</span><small>DES models autosave in this browser; named copies are kept in the model library. Queue models and simulation results last for the current session.</small></div>
           <button className="ui-btn ui-btn--danger" onClick={() => { setError(''); dialog.current?.showModal(); }}><Trash2 size={15} /> Clear all data</button>
         </div>
         {notice && <p className="home-notice" role="status">{notice}</p>}
@@ -104,7 +108,7 @@ export default function Home({ onNavigate, nodeCount, edgeCount, theme, onThemeC
 
       <dialog className="home-reset-dialog" ref={dialog} aria-labelledby="reset-title" aria-describedby="reset-description">
         <h2 id="reset-title">Clear all app data?</h2>
-        <p id="reset-description">This will erase your completed challenges and preferences, and replace your current model with the starter model. This cannot be undone. Downloaded files are kept.</p>
+        <p id="reset-description">This will erase your saved DES models, autosave, completed challenges and preferences, and restore the starter models. This cannot be undone. Downloaded files are kept.</p>
         {error && <p role="alert" className="home-error">{error}</p>}
         <div className="home-dialog-actions">
           <button className="ui-btn" autoFocus onClick={() => dialog.current?.close()}>Cancel</button>

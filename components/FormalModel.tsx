@@ -1,3 +1,5 @@
+import { isExtendedModel } from '../lib/model';
+import ProcessFormalView from './ProcessFormalView';
 import React, { useMemo, useState } from 'react';
 import { DesModel } from '../lib/model';
 import { formalModelRows, FormalRow } from '../lib/formalModel';
@@ -17,6 +19,7 @@ export function FormalSpecification({ rows, unit, open = false }: { rows: Formal
   </details>;
 }
 export default function FormalModel({ model }: { model: DesModel }) {
-  const rows = useMemo(() => formalModelRows(model), [model]);
+  const rows = useMemo(() => isExtendedModel(model) ? [] : formalModelRows(model), [model]);
+  if (isExtendedModel(model)) return <details className="formal-model"><summary>Formal model <span>Process specification · {model.unit}s</span></summary><ProcessFormalView model={model}/></details>;
   return <FormalSpecification rows={rows} unit={model.unit} />;
 }

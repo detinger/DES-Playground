@@ -132,7 +132,7 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
     setLastCompiledModel(null);
     setPlaybackIndex(0);
     setIsPlaying(false);
-    setNodes((nds: Node[]) => nds.map(n => ({ ...n, data: { ...n.data, simState: undefined } })));
+    setNodes((nds: Node<NodeData>[]) => nds.map(n => ({ ...n, data: { ...n.data, simState: undefined } })));
   }, [setNodes]);
 
   const saveScenario = useCallback((id: 'baseline' | 'alternative') => {
@@ -197,7 +197,7 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
     if (!runResult?.trace.length) return;
     const ev = runResult.trace[Math.min(playbackIndex, runResult.trace.length - 1)];
     const nsMap = ev.state.nodeStates;
-    setNodes((nds: Node[]) => nds.map(n => ({
+    setNodes((nds: Node<NodeData>[]) => nds.map(n => ({
       ...n,
       data: {
         ...n.data,
@@ -262,7 +262,7 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
     for (const [k, ci] of Object.entries(runOutput.ci)) {
       if (ci) m[k] = ci.mean;
     }
-    return m as typeof runOutput.primary.metrics;
+    return { ...runOutput.primary.metrics, ...m };
   }, [runOutput]);
 
   // Node name map for event log
@@ -285,7 +285,7 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
   }, [runResult, playbackIndex]);
 
   const onNodesChange = useCallback(
-    (changes: NodeChange[]) => setNodes((nds: Node[]) => applyNodeChanges(changes, nds)),
+    (changes: NodeChange<Node<NodeData>>[]) => setNodes((nds: Node<NodeData>[]) => applyNodeChanges(changes, nds)),
     [setNodes]
   );
 
@@ -295,7 +295,7 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
   );
 
   const onConnect = useCallback(
-    (params: Connection | Edge) => setEdges((eds: Edge[]) => addEdge({ ...params, animated: true, style: { stroke: '#6366f1', strokeWidth: 2 } }, eds)),
+    (params: Connection | Edge) => setEdges((eds: Edge[]) => addEdge<Edge>({ ...params, animated: true, style: { stroke: '#6366f1', strokeWidth: 2 } }, eds)),
     [setEdges],
   );
 
@@ -330,7 +330,7 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
         },
       };
 
-      setNodes((nds: Node[]) => nds.concat(newNode));
+      setNodes((nds: Node<NodeData>[]) => nds.concat(newNode));
     },
     [reactFlowInstance, setNodes],
   );
@@ -344,7 +344,7 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
   }, []);
 
   const updateNodeData = (nodeId: string, newData: Partial<NodeData>) => {
-    setNodes((nds: Node[]) =>
+    setNodes((nds: Node<NodeData>[]) =>
       nds.map((node) => {
         if (node.id === nodeId) {
           return { ...node, data: { ...node.data, ...newData } };
@@ -359,7 +359,7 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
   };
 
   const updateDistribution = (nodeId: string, distParams: Partial<DistributionParams>) => {
-    setNodes((nds: Node[]) =>
+    setNodes((nds: Node<NodeData>[]) =>
       nds.map((node) => {
         if (node.id === nodeId) {
           const currentDist = node.data.distribution || { type: 'exponential', mean: 1 };
@@ -798,7 +798,7 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
 
               <div style={{ paddingTop: 12, marginTop: 4 }}>
                 <button
-                  onClick={() => { setNodes((nds: Node[]) => nds.filter(n => n.id !== selectedNode.id)); setSelectedNode(null); }}
+                  onClick={() => { setNodes((nds: Node<NodeData>[]) => nds.filter(n => n.id !== selectedNode.id)); setSelectedNode(null); }}
                   className="ui-btn"
                   style={{ width: '100%', justifyContent: 'center', background: 'var(--error-soft)', borderColor: 'var(--error)', color: 'var(--error)' }}
                 >

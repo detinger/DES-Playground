@@ -4,6 +4,7 @@ export function distributionTex(d: Distribution): string {
   switch (d.kind) {
     case 'constant': return `\\operatorname{Const}(${d.value})`;
     case 'exponential': return `\\operatorname{Exp}(\\text{rate}=\\frac{1}{${d.mean}})`;
+    case 'discreteUniform': return `\\operatorname{DiscreteUniform}(${d.min},${d.max})`;
     case 'uniform': return `\\operatorname{U}(${d.min},${d.max})`;
     case 'normal': return d.nonnegativePolicy === 'reject'
       ? `\\mathcal{N}(${d.mean},${d.stddev}^{2})\\mid T\\geq0`

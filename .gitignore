@@ -24,4 +24,5 @@ dist-ssr
 *.sw?
 
 # Local reference materials
-/TEMP/
+/[Tt][Ee][Mm][Pp]/
+/public/references/

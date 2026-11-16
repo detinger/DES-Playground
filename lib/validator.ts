@@ -1,3 +1,5 @@
+import { isExtendedModel } from './model';
+import { validateProcessModel } from './processValidation';
 // DES model validator — structural, parameter and feasibility checks.
 
 import {
@@ -146,6 +148,7 @@ function checkDistribution(
 // ─── Main validator ────────────────────────────────────────────────────────────
 
 export function validateModel(model: DesModel): ValidationResult {
+  if (isExtendedModel(model)) return validateProcessModel(model);
   const raw: IssueBuilder[] = [];
 
   const sources = model.nodes.filter(n => n.config.kind === 'source');
