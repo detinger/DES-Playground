@@ -609,6 +609,7 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
         {/* React Flow canvas */}
         <div id="model-canvas" style={{ flex: 1, position: 'relative', minWidth: 0 }} ref={reactFlowWrapper}>
           <ReactFlow
+            proOptions={{ hideAttribution: true }}
             nodes={nodes}
             edges={edges}
             onNodesChange={onNodesChange}
