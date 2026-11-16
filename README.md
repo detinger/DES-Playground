@@ -1,122 +1,100 @@
-# Discrete Event Simulation Python Code Generator
+# DES Playground
 
-A web-based visual tool for designing and simulating discrete event systems, with automatic Python code generation using SimPy.
+An interactive learning environment for **Discrete Event Simulation (DES)** and **Queueing Theory** — built with React 19 + TypeScript + Vite.
 
-## What This Is
+> Build visual models, run multi-replication simulations, compare scenarios, explore theory, tackle challenges, and export production-ready SimPy / R simmer code.
 
-This application provides an intuitive, drag-and-drop interface for building discrete event simulation (DES) models. Users can visually construct systems with sources (arrival processes), servers (processing units), and sinks (departures), configure distributions, and generate executable Python code using the SimPy library.
-
-The tool is designed for:
-- Students learning discrete event simulation concepts
-- Researchers prototyping simulation models
-- Engineers building simulation software
-- Educators teaching DES principles
+---
 
 ## Features
 
-- **Visual Model Builder**: Drag-and-drop interface using React Flow to create DES models
-- **Component Library**: Pre-built nodes for sources, servers, and sinks with configurable parameters
-- **Distribution Support**: Exponential, normal, uniform, and custom distributions for arrival and service times
-- **Real-time Simulation**: Interactive playground to run and visualize simulation results
-- **Code Generation**: Automatic generation of SimPy Python code from visual models
-- **Syntax Highlighting**: Built-in code editor with syntax highlighting for generated Python code
-- **Theory Section**: Educational content explaining DES concepts and SimPy usage
-- **Export Functionality**: Export generated code and simulation results
+| Area | What you get |
+|---|---|
+| **Lessons** | 7 accordion lessons (DES fundamentals → code export) with inline visualizations |
+| **Examples** | 5 pre-built models (M/M/1, M/M/2, M/D/1, production line, two-stage) — load any into the editor |
+| **Challenges** | 5 assessed problems with progressive hints, answer validation, and linked examples |
+| **M/M/c Visualizer** | Interactive Erlang-C playground with live Lq / Wq / ρ charts |
+| **Model Explorer** | Drag-and-drop DES canvas; run replications with CI; event-step playback; scenario comparison |
+| **Code Export** | Auto-generate SimPy (Python) and R simmer scripts from any model; copy or download |
+| **Colab notebooks** | 5 fully worked Jupyter notebooks in `colab/` matching the browser simulation engine |
 
-## Technologies Used
+---
 
-- **Frontend**: React 19, TypeScript, Vite
-- **UI Components**: Tailwind CSS, Lucide React icons
-- **Flow Diagrams**: React Flow (@xyflow/react)
-- **Charts**: Recharts for simulation visualization
-- **Code Highlighting**: React Syntax Highlighter
-- **AI Integration**: Google Generative AI for enhanced code generation
+## Tech stack
 
-## Installation and Local Development
+- **React 19 / TypeScript / Vite**
+- **@xyflow/react** v12 — DES canvas
+- **Recharts** — simulation charts
+- **Lucide React** — icons
+- **React Syntax Highlighter** — code export panels
+- Custom DES event-calendar engine (TypeScript, mulberry32 PRNG, t-distribution CI)
+- M/M/c Erlang-C analytic benchmark
 
-### Prerequisites
+---
 
-- Node.js (version 18 or higher)
-- npm or yarn package manager
-
-### Installation Steps
-
-1. **Clone the repository** (if applicable) or navigate to the project directory:
-   ```bash
-   cd /path/to/DES-Playground
-   ```
-
-2. **Install dependencies**:
-   ```bash
-   npm install
-   ```
-
-3. **Start the development server**:
-   ```bash
-   npm run dev
-   ```
-
-4. **Open your browser** and navigate to `http://localhost:5173` (or the port shown in the terminal).
-
-### Build for Production
-
-To build the application for production:
+## Quick start
 
 ```bash
-npm run build
+npm install
+npm run dev        # → http://localhost:5173
 ```
-
-To preview the production build:
 
 ```bash
-npm run preview
+npm run build      # production bundle
+npm run preview    # preview the build
 ```
 
-## How to Use
+---
 
-### Getting Started
+## Project structure
 
-1. Open the application in your browser after running `npm run dev`.
-2. The app has three main sections accessible via tabs:
+```
+App.tsx                    # shell: sidebar nav, theme toggle, tab routing
+components/
+  Theory.tsx               # Lessons / Examples / Challenges tabs
+  Editor.tsx               # Model Explorer (canvas + run + export)
+  Simulator.tsx            # M/M/c Visualizer playground
+  CodeExport.tsx           # SimPy code panel
+  SimmerCodeExport.tsx     # R simmer code panel
+  ComparisonPanel.tsx      # Side-by-side scenario diff
+  ReplicationsPanel.tsx    # CI table
+  ValidationPanel.tsx      # Model validation errors
+  TheoryPanel.tsx          # M/M/c analytic reference (inside Editor)
+  EventLog.tsx             # Event trace table
+  nodes/CustomNodes.tsx    # React Flow node types
+lib/
+  model.ts                 # DesModel schema (discriminated union)
+  engine.ts                # DES event-calendar, runReplications()
+  compiler.ts              # nodes+edges → DesModel
+  validator.ts             # model validation rules
+  theory.ts                # M/M/c Erlang-C, detectMMc()
+  theoryContent.ts         # lessons, examples, challenges data
+  simpyGenerator.ts        # SimPy code generator
+  simmerGenerator.ts       # R simmer code generator
+  prng.ts                  # mulberry32 seeded PRNG
+  scenarios.ts             # scenario snapshot helpers
+  utils.ts                 # shared utilities
+colab/                     # Jupyter notebooks (SimPy, same metrics as browser)
+```
 
-### Theory Tab
-- Learn about discrete event simulation concepts
-- Understand SimPy fundamentals
-- Explore examples and best practices
+---
 
-### Playground Tab
-- **Visual Editor**: Drag nodes from the sidebar onto the canvas
-- **Configure Nodes**:
-  - **Source**: Set arrival distribution (e.g., exponential with mean 5)
-  - **Server**: Configure capacity and service distribution
-  - **Sink**: Define departure behavior
-- **Connect Nodes**: Draw edges between nodes to define the flow
-- **Run Simulation**: Click the play button to execute the simulation
-- **View Results**: See real-time charts and statistics
+## Colab notebooks
 
-### Editor Tab
-- **Generate Code**: Automatically convert your visual model to SimPy Python code
-- **Edit Code**: Manually modify the generated code if needed
-- **Export Code**: Copy or download the Python script
-- **Run Code**: Execute the code directly in the browser (if supported)
+Five fully worked examples in `colab/` — open in Google Colab or run locally with Jupyter:
 
-### Example Workflow
+| Notebook | Topic |
+|---|---|
+| `01_mm1_single_server.ipynb` | M/M/1 baseline, Erlang-C check, CI |
+| `02_mmc_multi_server.ipynb` | M/M/c staffing analysis |
+| `03_md1_vs_mm1_variability.ipynb` | Deterministic vs exponential service |
+| `04_production_line.ipynb` | Two-stage tandem queue |
+| `05_what_if_analysis.ipynb` | Scenario sweep, utilisation sensitivity |
 
-1. Create a simple M/M/1 queue:
-   - Add a Source node with exponential arrivals (mean = 5)
-   - Add a Server node with exponential service (mean = 4)
-   - Add a Sink node
-   - Connect Source → Server → Sink
+All notebooks use the same seed convention (`base + i×1000`) and t-distribution CI table as the browser engine.
 
-2. Run the simulation in the Playground to see queue statistics
-
-3. Switch to the Editor tab to generate and export the equivalent SimPy code
-
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit issues, feature requests, or pull requests.
+---
 
 ## License
 
-This project is private and for educational purposes.
+For educational use.

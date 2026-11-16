@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -17,11 +17,25 @@ import {
 import '@xyflow/react/dist/style.css';
 import { SourceNode, ServerNode, SinkNode } from './nodes/CustomNodes';
 import { NodeData, DistributionType, DistributionParams } from '../types';
-import { PlayCircle, Server, LogOut, Settings, Play, Pause, RotateCcw, BarChart3 } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import {
+  PlayCircle, Server, LogOut, Settings, Play, Pause, RotateCcw,
+  BarChart3, ShieldCheck, ChevronRight, ChevronLeft, ChevronsRight, ChevronsLeft,
+  Flag, Layers, GitCompare, Code2,
+} from 'lucide-react';
+import { LineChart, BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { cn } from '../lib/utils';
 import CodeExport from './CodeExport';
 import SimmerCodeExport from './SimmerCodeExport';
+import ValidationPanel from './ValidationPanel';
+import EventLog from './EventLog';
+import ReplicationsPanel from './ReplicationsPanel';
+import TheoryPanel from './TheoryPanel';
+import ComparisonPanel from './ComparisonPanel';
+import { Scenario, compareScenarios } from '../lib/scenarios';
+import { compileModel } from '../lib/compiler';
+import { validateModel } from '../lib/validator';
+import { ValidationResult } from '../lib/model';
+import { EngineResult, RunConfig, DEFAULT_RUN_CONFIG, RunOutput, runReplications } from '../lib/engine';
 
 const nodeTypes = {
   source: SourceNode,
@@ -32,268 +46,237 @@ const nodeTypes = {
 let id = 4;
 const getId = () => `${id++}`;
 
-const TICK_RATE_MS = 50;
+interface EditorProps {
+  nodes: Node<NodeData>[];
+  setNodes: React.Dispatch<React.SetStateAction<Node<NodeData>[]>>;
+  edges: Edge[];
+  setEdges: React.Dispatch<React.SetStateAction<Edge[]>>;
+  exampleConfig?: Partial<RunConfig>;
+}
 
-const sampleDistribution = (dist: DistributionParams) => {
-  const u = Math.random();
-  switch (dist.type) {
-    case 'exponential':
-      return -Math.log(1 - u) / (1 / (dist.mean || 1));
-    case 'normal':
-      const u1 = Math.random();
-      const u2 = Math.random();
-      const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
-      return Math.max(0, (dist.mean || 0) + z0 * (dist.stdDev || 1));
-    case 'uniform':
-      return (dist.min || 0) + u * ((dist.max || 1) - (dist.min || 0));
-    case 'constant':
-      return dist.value || 1;
-    case 'triangular':
-      const a = dist.min || 0;
-      const b = dist.max || 2;
-      const c = dist.mode || 1;
-      const F = (c - a) / (b - a);
-      if (u < F) {
-        return a + Math.sqrt(u * (b - a) * (c - a));
-      } else {
-        return b - Math.sqrt((1 - u) * (b - a) * (b - c));
-      }
-    default:
-      return 1;
-  }
-};
-
-export default function Editor({ nodes, setNodes, edges, setEdges }: any) {
+export default function Editor({ nodes, setNodes, edges, setEdges, exampleConfig }: EditorProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
   const [selectedNode, setSelectedNode] = useState<Node<NodeData> | null>(null);
 
-  // Simulation State
-  const [isRunning, setIsRunning] = useState(false);
-  const [simulationSpeed, setSimulationSpeed] = useState(1);
-  
-  const [uiState, setUiState] = useState({
-    time: 0,
-    nodeStates: {} as Record<string, any>,
-    stats: {
-      totalArrivals: 0,
-      totalDepartures: 0,
-      totalWaitTime: 0,
-      totalSystemTime: 0,
-      maxQueueLength: 0,
-    },
-    history: [] as any[],
-  });
+  // Validation state
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
 
-  const engine = useRef({
-    time: 0,
-    nextEntityId: 1,
-    nodeStates: {} as Record<string, any>,
-    stats: {
-      totalArrivals: 0,
-      totalDepartures: 0,
-      totalWaitTime: 0,
-      totalSystemTime: 0,
-      maxQueueLength: 0,
-    },
-    history: [] as any[],
-  });
+  const handleValidate = useCallback(() => {
+    const model = compileModel(nodes, edges);
+    setValidationResult(validateModel(model));
+  }, [nodes, edges]);
 
-  const resetSimulation = useCallback(() => {
-    setIsRunning(false);
-    engine.current = {
-      time: 0,
-      nextEntityId: 1,
-      nodeStates: {},
-      stats: {
-        totalArrivals: 0,
-        totalDepartures: 0,
-        totalWaitTime: 0,
-        totalSystemTime: 0,
-        maxQueueLength: 0,
-      },
-      history: [],
-    };
-    
-    // Clear simState from all nodes
-    setNodes((nds: Node[]) => nds.map(n => ({
-      ...n,
-      data: { ...n.data, simState: undefined }
-    })));
-    
-    setUiState({
-      time: 0,
-      nodeStates: {},
-      stats: { ...engine.current.stats },
-      history: [],
-    });
+  const handleSelectNode = useCallback((nodeId: string) => {
+    const node = nodes.find((n: any) => n.id === nodeId);
+    if (node) setSelectedNode(node as any);
+  }, [nodes]);
+
+  // ── Engine / playback state ────────────────────────────────────────────────
+  const [runResult, setRunResult]         = useState<EngineResult | null>(null);
+  const [runOutput, setRunOutput]         = useState<RunOutput | null>(null);
+  const [playbackIndex, setPlaybackIndex] = useState(0);
+  const [isPlaying, setIsPlaying]         = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [runConfig, setRunConfig]         = useState<RunConfig>(DEFAULT_RUN_CONFIG);
+  const [lastCompiledModel, setLastCompiledModel] = useState<import('../lib/model').DesModel | null>(null);
+  const [baseline, setBaseline]       = useState<Scenario | null>(null);
+  const [alternative, setAlternative] = useState<Scenario | null>(null);
+  const [showExport, setShowExport]   = useState(false);
+
+  const HELP_DESK: { nodes: any[]; edges: any[] } = {
+    nodes: [
+      { id: 'hd1', type: 'source', position: { x: 80, y: 240 }, data: { label: 'Customer Arrivals', type: 'source', distribution: { type: 'exponential', mean: 3 } } },
+      { id: 'hd2', type: 'server', position: { x: 340, y: 240 }, data: { label: 'Help Desk (1 agent)', type: 'server', capacity: 1, distribution: { type: 'exponential', mean: 4 } } },
+      { id: 'hd3', type: 'sink',   position: { x: 600, y: 240 }, data: { label: 'Issue Resolved',    type: 'sink'   } },
+    ],
+    edges: [
+      { id: 'hd-e1', source: 'hd1', target: 'hd2', animated: true, style: { stroke: '#6366f1', strokeWidth: 2 } },
+      { id: 'hd-e2', source: 'hd2', target: 'hd3', animated: true, style: { stroke: '#6366f1', strokeWidth: 2 } },
+    ],
+  };
+
+  const handleRun = useCallback(() => {
+    const model = compileModel(nodes, edges);
+    const vr = validateModel(model);
+    setValidationResult(vr);
+    if (vr.hasErrors) return;
+    const output = runReplications(model, runConfig);
+    setRunOutput(output);
+    setRunResult(output.primary);
+    setLastCompiledModel(model);
+    setPlaybackIndex(output.primary.trace.length - 1);
+    setIsPlaying(false);
+  }, [nodes, edges, runConfig]);
+
+  const handleReset = useCallback(() => {
+    setRunResult(null);
+    setRunOutput(null);
+    setLastCompiledModel(null);
+    setPlaybackIndex(0);
+    setIsPlaying(false);
+    setNodes((nds: Node[]) => nds.map(n => ({ ...n, data: { ...n.data, simState: undefined } })));
   }, [setNodes]);
 
-  // Main simulation loop
-  useEffect(() => {
-    if (!isRunning) return;
-
-    let animationFrameId: number;
-    let lastTime = performance.now();
-
-    const tick = (currentTime: number) => {
-      const deltaTimeMs = currentTime - lastTime;
-      
-      if (deltaTimeMs >= TICK_RATE_MS) {
-        lastTime = currentTime;
-        
-        const dt = (deltaTimeMs / 1000) * simulationSpeed;
-        const state = engine.current;
-        state.time += dt;
-
-        // Initialize node states if needed
-        nodes.forEach((node: Node<NodeData>) => {
-          if (!state.nodeStates[node.id]) {
-            state.nodeStates[node.id] = {
-              queue: [],
-              servers: Array.from({ length: node.data.capacity || 1 }, () => ({ entity: null, remainingTime: 0 })),
-              nextArrival: node.data.type === 'source' ? sampleDistribution(node.data.distribution!) : undefined,
-              generated: 0,
-              completed: 0,
-            };
-          }
-        });
-
-        // Process nodes
-        let totalQueueLength = 0;
-        
-        nodes.forEach((node: Node<NodeData>) => {
-          const nodeState = state.nodeStates[node.id];
-          if (!nodeState) return;
-
-          // Process Source
-          if (node.data.type === 'source') {
-            if (state.time >= nodeState.nextArrival) {
-              // Generate entity
-              const newEntity = {
-                id: state.nextEntityId++,
-                arrivalTime: state.time,
-                currentNodeId: node.id,
-              };
-              nodeState.generated++;
-              state.stats.totalArrivals++;
-              
-              // Find outgoing edges
-              const outgoingEdges = edges.filter((e: Edge) => e.source === node.id);
-              if (outgoingEdges.length > 0) {
-                // Simple random routing
-                const targetEdge = outgoingEdges[Math.floor(Math.random() * outgoingEdges.length)];
-                const targetNodeState = state.nodeStates[targetEdge.target];
-                if (targetNodeState) {
-                  targetNodeState.queue.push(newEntity);
-                }
-              }
-              
-              // Schedule next arrival
-              nodeState.nextArrival = state.time + sampleDistribution(node.data.distribution!);
-            }
-          }
-
-          // Process Server
-          if (node.data.type === 'server') {
-            totalQueueLength += nodeState.queue.length;
-            state.stats.maxQueueLength = Math.max(state.stats.maxQueueLength, totalQueueLength);
-
-            nodeState.servers.forEach((server: any) => {
-              if (server.entity) {
-                server.remainingTime -= dt;
-                if (server.remainingTime <= 0) {
-                  // Service finished
-                  const entity = server.entity;
-                  entity.endServiceTime = state.time;
-                  
-                  // Find outgoing edges
-                  const outgoingEdges = edges.filter((e: Edge) => e.source === node.id);
-                  if (outgoingEdges.length > 0) {
-                    const targetEdge = outgoingEdges[Math.floor(Math.random() * outgoingEdges.length)];
-                    const targetNodeState = state.nodeStates[targetEdge.target];
-                    if (targetNodeState) {
-                      targetNodeState.queue.push(entity);
-                    }
-                  }
-                  
-                  server.entity = null;
-                  server.remainingTime = 0;
-                }
-              }
-
-              // Start new service if idle and queue has entities
-              if (!server.entity && nodeState.queue.length > 0) {
-                const nextEntity = nodeState.queue.shift()!;
-                nextEntity.startServiceTime = state.time;
-                server.entity = nextEntity;
-                server.remainingTime = sampleDistribution(node.data.distribution!);
-              }
-            });
-          }
-
-          // Process Sink
-          if (node.data.type === 'sink') {
-            while (nodeState.queue.length > 0) {
-              const entity = nodeState.queue.shift()!;
-              nodeState.completed++;
-              state.stats.totalDepartures++;
-              
-              if (entity.startServiceTime) {
-                state.stats.totalWaitTime += (entity.startServiceTime - entity.arrivalTime);
-              }
-              state.stats.totalSystemTime += (state.time - entity.arrivalTime);
-            }
-          }
-        });
-
-        // Record history
-        if (Math.floor(state.time) > Math.floor(state.time - dt)) {
-          state.history.push({
-            time: Math.floor(state.time),
-            queueLength: totalQueueLength,
-          });
-          if (state.history.length > 60) state.history.shift();
-        }
-
-        // Update UI
-        setUiState({
-          time: state.time,
-          nodeStates: JSON.parse(JSON.stringify(state.nodeStates)),
-          stats: { ...state.stats },
-          history: [...state.history],
-        });
-
-        // Update Node Data for visualization
-        setNodes((nds: Node[]) => nds.map(n => {
-          const ns = state.nodeStates[n.id];
-          if (!ns) return n;
-          
-          let simState: any = {};
-          if (n.data.type === 'source') {
-            simState = { generated: ns.generated };
-          } else if (n.data.type === 'server') {
-            simState = {
-              queueLength: ns.queue.length,
-              busyServers: ns.servers.filter((s: any) => s.entity !== null).length,
-            };
-          } else if (n.data.type === 'sink') {
-            simState = { completed: ns.completed };
-          }
-          
-          return {
-            ...n,
-            data: { ...n.data, simState }
-          };
-        }));
-      }
-      
-      animationFrameId = requestAnimationFrame(tick);
+  const saveScenario = useCallback((id: 'baseline' | 'alternative') => {
+    if (!runOutput || !lastCompiledModel) return;
+    const s: Scenario = {
+      id,
+      name: id === 'baseline' ? 'Baseline' : 'Alternative',
+      nodes: nodes.map(n => ({ ...n, data: { ...n.data, simState: undefined } })),
+      edges: [...edges],
+      config: { ...runConfig },
+      output: runOutput,
+      model: lastCompiledModel,
+      savedAt: Date.now(),
     };
+    if (id === 'baseline') setBaseline(s); else setAlternative(s);
+  }, [nodes, edges, runConfig, runOutput, lastCompiledModel]);
 
-    animationFrameId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [isRunning, simulationSpeed, nodes, edges, setNodes]);
+  const loadScenario = useCallback((s: Scenario) => {
+    setNodes(s.nodes);
+    setEdges(s.edges);
+    setRunConfig(s.config);
+    setRunOutput(s.output);
+    setRunResult(s.output.primary);
+    setLastCompiledModel(s.model);
+    setValidationResult(null);
+    setPlaybackIndex(s.output.primary.trace.length - 1);
+    setIsPlaying(false);
+  }, [setNodes, setEdges]);
+
+  const loadHelpDesk = useCallback(() => {
+    setNodes(HELP_DESK.nodes);
+    setEdges(HELP_DESK.edges);
+    setRunResult(null);
+    setRunOutput(null);
+    setLastCompiledModel(null);
+    setValidationResult(null);
+    setPlaybackIndex(0);
+    setSelectedNode(null);
+  }, []);
+
+  // Playback animation
+  useEffect(() => {
+    if (!runResult || !isPlaying) return;
+    const eventsPerTick = Math.max(1, Math.round(playbackSpeed * 2));
+    const id = setInterval(() => {
+      setPlaybackIndex(i => {
+        const next = i + eventsPerTick;
+        if (next >= runResult.trace.length - 1) {
+          setIsPlaying(false);
+          return runResult.trace.length - 1;
+        }
+        return next;
+      });
+    }, 50);
+    return () => clearInterval(id);
+  }, [runResult, isPlaying, playbackSpeed]);
+
+  // Apply example config (from Theory tab) when a new example is loaded
+  useEffect(() => {
+    if (!exampleConfig) return;
+    setRunConfig(c => ({ ...c, ...exampleConfig }));
+    setRunResult(null);
+    setRunOutput(null);
+    setLastCompiledModel(null);
+    setValidationResult(null);
+    setPlaybackIndex(0);
+    setIsPlaying(false);
+    setSelectedNode(null);
+  }, [exampleConfig]);
+
+  // Drive node simState from playback position
+  useEffect(() => {
+    if (!runResult?.trace.length) return;
+    const ev = runResult.trace[Math.min(playbackIndex, runResult.trace.length - 1)];
+    const nsMap = ev.state.nodeStates;
+    setNodes((nds: Node[]) => nds.map(n => ({
+      ...n,
+      data: {
+        ...n.data,
+        simState: nsMap[n.id]
+          ? { ...nsMap[n.id], busyServers: nsMap[n.id].busyServers }
+          : undefined,
+      },
+    })));
+  }, [playbackIndex, runResult, setNodes]);
+
+  // Pre-computed minute-by-minute chart data for the full run (queue + utilization)
+  const totalCapacity = useMemo(
+    () => nodes.filter((n: Node<NodeData>) => n.data.type === 'server')
+              .reduce((s: number, n: Node<NodeData>) => s + (n.data.capacity || 1), 0),
+    [nodes],
+  );
+
+  const fullChartData = useMemo(() => {
+    if (!runResult?.trace.length) return [];
+    const data: { time: number; queueLength: number; utilPct: number }[] = [];
+    let lastMin = -1;
+    for (const ev of runResult.trace) {
+      const min = Math.floor(ev.t);
+      if (min !== lastMin) {
+        const q = Object.values(ev.state.nodeStates).reduce((s, n) => s + n.queueLength, 0);
+        const b = Object.values(ev.state.nodeStates).reduce((s, n) => s + n.busyServers, 0);
+        data.push({ time: ev.t, queueLength: q, utilPct: totalCapacity > 0 ? (b / totalCapacity) * 100 : 0 });
+        lastMin = min;
+      }
+    }
+    return data;
+  }, [runResult, totalCapacity]);
+
+  const currentT   = runResult?.trace[playbackIndex]?.t ?? 0;
+  const chartData  = useMemo(
+    () => fullChartData.filter(d => d.time <= currentT),
+    [fullChartData, currentT],
+  );
+
+  // Wait-time histogram from observation-window entities
+  const waitHistogram = useMemo(() => {
+    if (!runResult?.entities.length) return [];
+    const waits = runResult.entities
+      .filter(e => e.departureTime !== undefined && e.arrivalTime >= runConfig.warmup)
+      .map(e => e.waitTime);
+    if (!waits.length) return [];
+    const maxW = Math.max(...waits);
+    if (maxW <= 0) return [{ label: '0', count: waits.length }];
+    const BINS = 15;
+    const binSize = maxW / BINS;
+    const counts  = new Array(BINS).fill(0);
+    for (const w of waits) counts[Math.min(Math.floor(w / binSize), BINS - 1)]++;
+    return counts.map((count, i) => ({ label: (i * binSize).toFixed(1), count }));
+  }, [runResult, runConfig.warmup]);
+
+  // Metrics to display: CI mean if multi-rep, else single-run metrics
+  const displayMetrics = useMemo(() => {
+    if (!runOutput) return null;
+    if (runOutput.reps.length === 1) return runOutput.primary.metrics;
+    // Build Partial<RunMetrics> from CI means
+    const m: Record<string, number> = {};
+    for (const [k, ci] of Object.entries(runOutput.ci)) {
+      if (ci) m[k] = ci.mean;
+    }
+    return m as typeof runOutput.primary.metrics;
+  }, [runOutput]);
+
+  // Node name map for event log
+  const nodeNames: Record<string, string> = useMemo(
+    () => Object.fromEntries(nodes.map((n: Node<NodeData>) => [n.id, n.data.label])),
+    [nodes],
+  );
+
+  // Scenario comparison (only when both snapshots exist)
+  const comparison = useMemo(
+    () => baseline && alternative ? compareScenarios(baseline, alternative) : null,
+    [baseline, alternative],
+  );
+
+  // Playback-derived node states (for the server visualizer)
+  const currentNodeStates = useMemo(() => {
+    if (!runResult?.trace.length) return {} as Record<string, any>;
+    const ev = runResult.trace[Math.min(playbackIndex, runResult.trace.length - 1)];
+    return ev.state.nodeStates;
+  }, [runResult, playbackIndex]);
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => setNodes((nds: Node[]) => applyNodeChanges(changes, nds)),
@@ -401,436 +384,655 @@ export default function Editor({ nodes, setNodes, edges, setEdges }: any) {
     }
   };
 
-  const avgWaitTime = uiState.stats.totalDepartures > 0 
-    ? (uiState.stats.totalWaitTime / uiState.stats.totalDepartures).toFixed(2) 
-    : '0.00';
-  const avgSystemTime = uiState.stats.totalDepartures > 0 
-    ? (uiState.stats.totalSystemTime / uiState.stats.totalDepartures).toFixed(2) 
-    : '0.00';
+  const m   = displayMetrics;
+  const fmt = (v: number | undefined) => (v !== undefined ? v.toFixed(2) : '—');
+
+  const inputCls = "w-full h-[34px] px-3 rounded-[6px] text-sm border outline-none transition-colors";
+  const inputStyle: React.CSSProperties = {
+    background: 'var(--bg-sunken)',
+    border: '1px solid var(--border)',
+    color: 'var(--text)',
+    fontFamily: 'var(--font-sans)',
+  };
+  const labelCls = "block text-xs font-semibold mb-1";
+  const labelStyle: React.CSSProperties = { color: 'var(--text-muted)' };
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Editor Controls */}
-      <div className="bg-gray-800 rounded-xl p-4 shadow-lg border border-gray-700 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-300">Speed:</span>
-            <input 
-              type="range" 
-              min="0.5" max="10" step="0.5" 
-              value={simulationSpeed}
-              onChange={(e) => setSimulationSpeed(parseFloat(e.target.value))}
-              className="w-24 accent-purple-500"
-            />
-            <span className="text-sm text-purple-400 w-8">{simulationSpeed}x</span>
-          </div>
-          <div className="text-sm font-mono text-gray-400 border-l border-gray-700 pl-4">
-            Time: {uiState.time.toFixed(1)}s
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={() => setIsRunning(!isRunning)}
-            className={cn(
-              "flex items-center justify-center gap-2 py-2 px-6 rounded-lg font-medium transition-colors",
-              isRunning ? "bg-red-500/20 text-red-400 hover:bg-red-500/30" : "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
-            )}
-          >
-            {isRunning ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-            {isRunning ? 'Pause' : 'Start'}
-          </button>
-          <button 
-            onClick={resetSimulation}
-            className="p-2 bg-gray-700 text-gray-300 hover:bg-gray-600 rounded-lg transition-colors"
-            title="Reset Simulation"
-          >
-            <RotateCcw className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-      {/* Editor Area */}
-      <div className="flex h-[600px] border border-gray-700 rounded-xl overflow-hidden bg-gray-900">
-        {/* Sidebar - Node Palette */}
-        <div className="w-64 bg-gray-800 border-r border-gray-700 p-4 flex flex-col gap-4">
-        <h3 className="text-lg font-bold text-gray-200 mb-2">Components</h3>
-        
-        <div 
-          className="p-3 bg-gray-700 border border-gray-600 rounded-lg cursor-grab hover:bg-gray-600 flex items-center gap-3"
-          onDragStart={(e) => { e.dataTransfer.setData('application/reactflow', 'source'); e.dataTransfer.effectAllowed = 'move'; }}
-          draggable
-        >
-          <PlayCircle className="w-5 h-5 text-emerald-400" />
-          <span className="font-medium">Source</span>
-        </div>
-        
-        <div 
-          className="p-3 bg-gray-700 border border-gray-600 rounded-lg cursor-grab hover:bg-gray-600 flex items-center gap-3"
-          onDragStart={(e) => { e.dataTransfer.setData('application/reactflow', 'server'); e.dataTransfer.effectAllowed = 'move'; }}
-          draggable
-        >
-          <Server className="w-5 h-5 text-amber-400" />
-          <span className="font-medium">Server (Process)</span>
-        </div>
-
-        <div 
-          className="p-3 bg-gray-700 border border-gray-600 rounded-lg cursor-grab hover:bg-gray-600 flex items-center gap-3"
-          onDragStart={(e) => { e.dataTransfer.setData('application/reactflow', 'sink'); e.dataTransfer.effectAllowed = 'move'; }}
-          draggable
-        >
-          <LogOut className="w-5 h-5 text-red-400" />
-          <span className="font-medium">Sink</span>
-        </div>
-        
-        <div className="mt-auto text-xs text-gray-500 p-2 bg-gray-900/50 rounded">
-          Drag and drop nodes onto the canvas. Connect them by dragging between handles.
-        </div>
-      </div>
-
-      {/* React Flow Canvas */}
-      <div className="flex-1 relative" ref={reactFlowWrapper}>
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          onInit={setReactFlowInstance}
-          onDrop={onDrop}
-          onDragOver={onDragOver}
-          onNodeClick={onNodeClick}
-          onPaneClick={onPaneClick}
-          nodeTypes={nodeTypes}
-          fitView
-          className="bg-gray-900"
-        >
-          <Background color="#374151" gap={16} />
-          <Controls className="bg-gray-800 border-gray-700 fill-gray-300" />
-        </ReactFlow>
-      </div>
-
-      {/* Properties Panel */}
-      {selectedNode && (
-        <div className="w-80 bg-gray-800 border-l border-gray-700 p-4 overflow-y-auto">
-          <div className="flex items-center gap-2 mb-6 pb-4 border-b border-gray-700">
-            <Settings className="w-5 h-5 text-indigo-400" />
-            <h3 className="text-lg font-bold text-gray-200">Properties</h3>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">Name</label>
+      {/* Controls bar */}
+      <div style={{
+        background: 'var(--bg-elevated)',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius)',
+        padding: '10px 16px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 12,
+        flexWrap: 'wrap',
+        boxShadow: 'var(--shadow-sm)',
+      }}>
+        {/* Run config */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          {[
+            { label: 'Horizon', key: 'horizon' as const, min: 10, max: 100000, step: 10, suffix: 'min', width: 72 },
+            { label: 'Warm-up', key: 'warmup'  as const, min: 0,  max: 100000, step: 10, suffix: 'min', width: 72 },
+            { label: 'Seed',    key: 'seed'    as const, min: 0,  max: 999999, step: 1,  suffix: '',    width: 64 },
+            { label: 'Reps',    key: 'replications' as const, min: 1, max: 50, step: 1, suffix: '', width: 48 },
+          ].map(({ label, key, min, max, step, suffix, width }) => (
+            <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text-muted)' }}>
+              {label}
               <input
-                type="text"
-                value={selectedNode.data.label}
-                onChange={(e) => updateNodeData(selectedNode.id, { label: e.target.value })}
-                className="w-full bg-gray-900 border border-gray-700 rounded-md px-3 py-2 text-gray-200 focus:outline-none focus:border-indigo-500"
+                type="number" min={min} max={max} step={step}
+                value={runConfig[key]}
+                onChange={e => setRunConfig(c => ({ ...c, [key]: Math.max(min, parseInt(e.target.value) || min) }))}
+                style={{ width, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-sunken)', color: 'var(--text)', fontSize: 12 }}
               />
+              {suffix && <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>{suffix}</span>}
+            </label>
+          ))}
+          {runResult && (
+            <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-subtle)', borderLeft: '1px solid var(--border)', paddingLeft: 12 }}>
+              t = {currentT.toFixed(1)} | {playbackIndex + 1}/{runResult.trace.length} events
+              {runResult.truncatedAt && <span style={{ color: 'var(--warning)', marginLeft: 6 }}>⚠ capped</span>}
+            </span>
+          )}
+        </div>
+
+        {/* Action buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button onClick={handleValidate} className="ui-btn" title="Validate model">
+            <ShieldCheck size={14} /> Validate
+          </button>
+          <button
+            onClick={handleRun}
+            disabled={!!validationResult?.hasErrors}
+            className="ui-btn"
+            style={validationResult?.hasErrors
+              ? { opacity: 0.4, cursor: 'not-allowed' }
+              : { background: 'var(--primary)', borderColor: 'var(--primary)', color: 'var(--text-on-primary)' }
+            }
+            title={validationResult?.hasErrors ? 'Fix errors before running' : 'Compute simulation'}
+          >
+            <Play size={14} /> Run
+          </button>
+
+          {/* Playback controls — only shown after a run */}
+          {runResult && (<>
+            <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 2px' }} />
+            <button
+              onClick={() => setPlaybackIndex(0)}
+              className="icon-btn" title="Jump to start"
+              disabled={playbackIndex === 0}
+              style={playbackIndex === 0 ? { opacity: 0.4 } : {}}
+            >
+              <ChevronsLeft size={14} />
+            </button>
+            <button
+              onClick={() => setPlaybackIndex(i => Math.max(0, i - 1))}
+              className="icon-btn" title="Step back"
+              disabled={playbackIndex === 0}
+              style={playbackIndex === 0 ? { opacity: 0.4 } : {}}
+            >
+              <ChevronLeft size={14} />
+            </button>
+            <button
+              onClick={() => setIsPlaying(p => !p)}
+              className="ui-btn"
+              style={isPlaying
+                ? { background: 'var(--error-soft)', borderColor: 'var(--error)', color: 'var(--error)' }
+                : {}
+              }
+            >
+              {isPlaying ? <Pause size={14} /> : <Play size={14} />}
+              {isPlaying ? 'Pause' : 'Play'}
+            </button>
+            <button
+              onClick={() => setPlaybackIndex(i => Math.min(runResult.trace.length - 1, i + 1))}
+              className="icon-btn" title="Step forward"
+              disabled={playbackIndex >= runResult.trace.length - 1}
+              style={playbackIndex >= runResult.trace.length - 1 ? { opacity: 0.4 } : {}}
+            >
+              <ChevronRight size={14} />
+            </button>
+            <button
+              onClick={() => { setPlaybackIndex(runResult.trace.length - 1); setIsPlaying(false); }}
+              className="icon-btn" title="Jump to end"
+              disabled={playbackIndex >= runResult.trace.length - 1}
+              style={playbackIndex >= runResult.trace.length - 1 ? { opacity: 0.4 } : {}}
+            >
+              <ChevronsRight size={14} />
+            </button>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text-muted)', marginLeft: 2 }}>
+              <input
+                type="range" min="1" max="20" step="1"
+                value={playbackSpeed}
+                onChange={e => setPlaybackSpeed(parseInt(e.target.value))}
+                style={{ width: 72, accentColor: 'var(--primary)' }}
+              />
+              <span style={{ fontSize: 12, color: 'var(--primary)', width: 28, fontVariantNumeric: 'tabular-nums' }}>{playbackSpeed}×</span>
+            </label>
+          </>)}
+          <button onClick={handleReset} className="icon-btn" title="Reset">
+            <RotateCcw size={15} />
+          </button>
+
+          {/* Scenario save buttons — shown after a run */}
+          {runOutput && (<>
+            <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 2px' }} />
+            <button
+              onClick={() => saveScenario('baseline')}
+              className="ui-btn"
+              title="Save current run as Baseline for comparison"
+              style={baseline ? { borderColor: 'var(--chart-1)', color: 'var(--chart-1)' } : {}}
+            >
+              <Flag size={13} />
+              {baseline ? 'Baseline ✓' : 'Save Baseline'}
+            </button>
+            <button
+              onClick={() => saveScenario('alternative')}
+              className="ui-btn"
+              title="Save current run as Alternative for comparison"
+              style={alternative ? { borderColor: 'var(--chart-3)', color: 'var(--chart-3)' } : {}}
+            >
+              <Layers size={13} />
+              {alternative ? 'Alt ✓' : 'Save Alt'}
+            </button>
+            {baseline && alternative && (
+              <span style={{ fontSize: 11, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <GitCompare size={12} /> Compare ↓
+              </span>
+            )}
+          </>)}
+          <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 2px' }} />
+          <button
+            onClick={() => setShowExport(s => !s)}
+            className="ui-btn"
+            title="Toggle Python / R code export"
+            style={showExport ? { background: 'var(--primary)', borderColor: 'var(--primary)', color: 'var(--text-on-primary)' } : {}}
+          >
+            <Code2 size={14} /> {showExport ? 'Hide Export' : 'Export Code'}
+          </button>
+        </div>
+      </div>
+
+      {/* Validation panel */}
+      {validationResult && (
+        <ValidationPanel
+          result={validationResult}
+          onSelectNode={handleSelectNode}
+        />
+      )}
+
+      {/* Editor workspace */}
+      <div style={{
+        display: 'flex',
+        height: 600,
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius)',
+        overflow: 'hidden',
+        background: 'var(--canvas-bg)',
+      }}>
+        {/* Node palette */}
+        <div style={{
+          width: 200,
+          background: 'var(--bg-elevated)',
+          borderRight: '1px solid var(--border)',
+          padding: '14px 10px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 6,
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-subtle)', padding: '0 4px 6px' }}>
+            Components
+          </div>
+
+          {[
+            { type: 'source', icon: <PlayCircle size={15} style={{ color: 'var(--success)' }} />, label: 'Source' },
+            { type: 'server', icon: <Server size={15} style={{ color: 'var(--accent)' }} />, label: 'Server' },
+            { type: 'sink',   icon: <LogOut size={15} style={{ color: 'var(--error)' }} />,   label: 'Sink' },
+          ].map(item => (
+            <div
+              key={item.type}
+              draggable
+              onDragStart={(e) => { e.dataTransfer.setData('application/reactflow', item.type); e.dataTransfer.effectAllowed = 'move'; }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '7px 10px',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border)',
+                background: 'var(--bg-subtle)',
+                cursor: 'grab',
+                fontSize: 13,
+                color: 'var(--text)',
+                transition: 'background 120ms',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'var(--bg-subtle)')}
+            >
+              {item.icon}
+              <span>{item.label}</span>
+            </div>
+          ))}
+
+          <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-subtle)', marginBottom: 6 }}>
+              Examples
+            </div>
+            <button
+              onClick={loadHelpDesk}
+              style={{
+                width: '100%', textAlign: 'left', padding: '6px 10px',
+                borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)',
+                background: 'var(--bg-subtle)', cursor: 'pointer',
+                fontSize: 12, color: 'var(--text)',
+                transition: 'background 120ms',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'var(--bg-subtle)')}
+              title="Help desk, 1 agent (ρ > 1 — overloaded). Increase capacity to 2 as an improvement."
+            >
+              <div style={{ fontWeight: 500 }}>Help Desk</div>
+              <div style={{ fontSize: 10, color: 'var(--text-subtle)', marginTop: 1 }}>λ=1/3, μ=1/4, c=1</div>
+            </button>
+          </div>
+
+          <div style={{ marginTop: 'auto', fontSize: 11, color: 'var(--text-subtle)', padding: '8px 4px', lineHeight: 1.4 }}>
+            Drag nodes onto the canvas. Connect by dragging handles.
+          </div>
+        </div>
+
+        {/* React Flow canvas */}
+        <div style={{ flex: 1, position: 'relative', minWidth: 0 }} ref={reactFlowWrapper}>
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            onInit={setReactFlowInstance}
+            onDrop={onDrop}
+            onDragOver={onDragOver}
+            onNodeClick={onNodeClick}
+            onPaneClick={onPaneClick}
+            nodeTypes={nodeTypes}
+            fitView
+            style={{ background: 'var(--canvas-bg)' }}
+          >
+            <Background color="var(--border)" gap={20} size={1} />
+            <Controls />
+          </ReactFlow>
+        </div>
+
+        {/* Properties panel */}
+        {selectedNode && (
+          <div style={{
+            width: 280,
+            background: 'var(--bg-elevated)',
+            borderLeft: '1px solid var(--border)',
+            padding: 14,
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 0,
+          }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              marginBottom: 14, paddingBottom: 10,
+              borderBottom: '1px solid var(--border)',
+            }}>
+              <Settings size={15} style={{ color: 'var(--primary)' }} />
+              <span style={{ fontWeight: 650, fontSize: 14, color: 'var(--text)' }}>Properties</span>
             </div>
 
-            {selectedNode.data.type === 'server' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Capacity (Servers)</label>
+                <label className={labelCls} style={labelStyle}>Name</label>
                 <input
-                  type="number"
-                  min="1"
-                  value={selectedNode.data.capacity || 1}
-                  onChange={(e) => updateNodeData(selectedNode.id, { capacity: parseInt(e.target.value) || 1 })}
-                  className="w-full bg-gray-900 border border-gray-700 rounded-md px-3 py-2 text-gray-200 focus:outline-none focus:border-indigo-500"
+                  type="text"
+                  value={selectedNode.data.label}
+                  onChange={(e) => updateNodeData(selectedNode.id, { label: e.target.value })}
+                  className={inputCls}
+                  style={inputStyle}
                 />
               </div>
-            )}
 
-            {(selectedNode.data.type === 'source' || selectedNode.data.type === 'server') && selectedNode.data.distribution && (
-              <div className="pt-4 border-t border-gray-700">
-                <h4 className="font-medium text-gray-300 mb-3">
-                  {selectedNode.data.type === 'source' ? 'Inter-Arrival Time' : 'Service Time'}
-                </h4>
-                
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-1">Distribution</label>
-                    <select
-                      value={selectedNode.data.distribution.type}
-                      onChange={(e) => updateDistribution(selectedNode.id, { type: e.target.value as DistributionType })}
-                      className="w-full bg-gray-900 border border-gray-700 rounded-md px-3 py-2 text-gray-200 focus:outline-none focus:border-indigo-500"
-                    >
-                      <option value="exponential">Exponential</option>
-                      <option value="normal">Normal</option>
-                      <option value="uniform">Uniform</option>
-                      <option value="triangular">Triangular</option>
-                      <option value="constant">Constant</option>
-                    </select>
+              {selectedNode.data.type === 'server' && (
+                <div>
+                  <label className={labelCls} style={labelStyle}>Capacity (servers)</label>
+                  <input
+                    type="number" min="1"
+                    value={selectedNode.data.capacity || 1}
+                    onChange={(e) => updateNodeData(selectedNode.id, { capacity: parseInt(e.target.value) || 1 })}
+                    className={inputCls}
+                    style={inputStyle}
+                  />
+                </div>
+              )}
+
+              {(selectedNode.data.type === 'source' || selectedNode.data.type === 'server') && selectedNode.data.distribution && (
+                <div style={{ paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 12, fontWeight: 650, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
+                    {selectedNode.data.type === 'source' ? 'Inter-arrival time' : 'Service time'}
                   </div>
 
-                  {selectedNode.data.distribution.type === 'exponential' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-1">Mean</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={selectedNode.data.distribution.mean || 1}
-                        onChange={(e) => updateDistribution(selectedNode.id, { mean: parseFloat(e.target.value) || 0 })}
-                        className="w-full bg-gray-900 border border-gray-700 rounded-md px-3 py-2 text-gray-200 focus:outline-none focus:border-indigo-500"
-                      />
+                      <label className={labelCls} style={labelStyle}>Distribution</label>
+                      <select
+                        value={selectedNode.data.distribution.type}
+                        onChange={(e) => updateDistribution(selectedNode.id, { type: e.target.value as DistributionType })}
+                        className={inputCls}
+                        style={inputStyle}
+                      >
+                        <option value="exponential">Exponential</option>
+                        <option value="normal">Normal</option>
+                        <option value="uniform">Uniform</option>
+                        <option value="triangular">Triangular</option>
+                        <option value="constant">Constant</option>
+                      </select>
                     </div>
-                  )}
 
-                  {selectedNode.data.distribution.type === 'normal' && (
-                    <>
+                    {selectedNode.data.distribution.type === 'exponential' && (
                       <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1">Mean</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={selectedNode.data.distribution.mean || 1}
+                        <label className={labelCls} style={labelStyle}>Mean (minutes)</label>
+                        <input type="number" step="0.1" value={selectedNode.data.distribution.mean || 1}
                           onChange={(e) => updateDistribution(selectedNode.id, { mean: parseFloat(e.target.value) || 0 })}
-                          className="w-full bg-gray-900 border border-gray-700 rounded-md px-3 py-2 text-gray-200 focus:outline-none focus:border-indigo-500"
-                        />
+                          className={inputCls} style={inputStyle} />
+                      </div>
+                    )}
+                    {selectedNode.data.distribution.type === 'normal' && (<>
+                      <div>
+                        <label className={labelCls} style={labelStyle}>Mean</label>
+                        <input type="number" step="0.1" value={selectedNode.data.distribution.mean || 1}
+                          onChange={(e) => updateDistribution(selectedNode.id, { mean: parseFloat(e.target.value) || 0 })}
+                          className={inputCls} style={inputStyle} />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1">Standard Deviation</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={selectedNode.data.distribution.stdDev || 0.5}
+                        <label className={labelCls} style={labelStyle}>Std deviation</label>
+                        <input type="number" step="0.1" value={selectedNode.data.distribution.stdDev || 0.5}
                           onChange={(e) => updateDistribution(selectedNode.id, { stdDev: parseFloat(e.target.value) || 0 })}
-                          className="w-full bg-gray-900 border border-gray-700 rounded-md px-3 py-2 text-gray-200 focus:outline-none focus:border-indigo-500"
-                        />
+                          className={inputCls} style={inputStyle} />
                       </div>
-                    </>
-                  )}
-
-                  {selectedNode.data.distribution.type === 'uniform' && (
-                    <>
+                    </>)}
+                    {selectedNode.data.distribution.type === 'uniform' && (<>
                       <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1">Min</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={selectedNode.data.distribution.min || 0}
+                        <label className={labelCls} style={labelStyle}>Min</label>
+                        <input type="number" step="0.1" value={selectedNode.data.distribution.min || 0}
                           onChange={(e) => updateDistribution(selectedNode.id, { min: parseFloat(e.target.value) || 0 })}
-                          className="w-full bg-gray-900 border border-gray-700 rounded-md px-3 py-2 text-gray-200 focus:outline-none focus:border-indigo-500"
-                        />
+                          className={inputCls} style={inputStyle} />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1">Max</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={selectedNode.data.distribution.max || 10}
+                        <label className={labelCls} style={labelStyle}>Max</label>
+                        <input type="number" step="0.1" value={selectedNode.data.distribution.max || 10}
                           onChange={(e) => updateDistribution(selectedNode.id, { max: parseFloat(e.target.value) || 0 })}
-                          className="w-full bg-gray-900 border border-gray-700 rounded-md px-3 py-2 text-gray-200 focus:outline-none focus:border-indigo-500"
-                        />
+                          className={inputCls} style={inputStyle} />
                       </div>
-                    </>
-                  )}
-
-                  {selectedNode.data.distribution.type === 'triangular' && (
-                    <>
+                    </>)}
+                    {selectedNode.data.distribution.type === 'triangular' && (<>
                       <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1">Min</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={selectedNode.data.distribution.min || 0}
+                        <label className={labelCls} style={labelStyle}>Min</label>
+                        <input type="number" step="0.1" value={selectedNode.data.distribution.min || 0}
                           onChange={(e) => updateDistribution(selectedNode.id, { min: parseFloat(e.target.value) || 0 })}
-                          className="w-full bg-gray-900 border border-gray-700 rounded-md px-3 py-2 text-gray-200 focus:outline-none focus:border-indigo-500"
-                        />
+                          className={inputCls} style={inputStyle} />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1">Mode</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={selectedNode.data.distribution.mode || 5}
+                        <label className={labelCls} style={labelStyle}>Mode</label>
+                        <input type="number" step="0.1" value={selectedNode.data.distribution.mode || 5}
                           onChange={(e) => updateDistribution(selectedNode.id, { mode: parseFloat(e.target.value) || 0 })}
-                          className="w-full bg-gray-900 border border-gray-700 rounded-md px-3 py-2 text-gray-200 focus:outline-none focus:border-indigo-500"
-                        />
+                          className={inputCls} style={inputStyle} />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1">Max</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={selectedNode.data.distribution.max || 10}
+                        <label className={labelCls} style={labelStyle}>Max</label>
+                        <input type="number" step="0.1" value={selectedNode.data.distribution.max || 10}
                           onChange={(e) => updateDistribution(selectedNode.id, { max: parseFloat(e.target.value) || 0 })}
-                          className="w-full bg-gray-900 border border-gray-700 rounded-md px-3 py-2 text-gray-200 focus:outline-none focus:border-indigo-500"
-                        />
+                          className={inputCls} style={inputStyle} />
                       </div>
-                    </>
-                  )}
-
-                  {selectedNode.data.distribution.type === 'constant' && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-1">Value</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={selectedNode.data.distribution.value || 5}
-                        onChange={(e) => updateDistribution(selectedNode.id, { value: parseFloat(e.target.value) || 0 })}
-                        className="w-full bg-gray-900 border border-gray-700 rounded-md px-3 py-2 text-gray-200 focus:outline-none focus:border-indigo-500"
-                      />
-                    </div>
-                  )}
+                    </>)}
+                    {selectedNode.data.distribution.type === 'constant' && (
+                      <div>
+                        <label className={labelCls} style={labelStyle}>Value</label>
+                        <input type="number" step="0.1" value={selectedNode.data.distribution.value || 5}
+                          onChange={(e) => updateDistribution(selectedNode.id, { value: parseFloat(e.target.value) || 0 })}
+                          className={inputCls} style={inputStyle} />
+                      </div>
+                    )}
+                  </div>
                 </div>
+              )}
+
+              <div style={{ paddingTop: 12, marginTop: 4 }}>
+                <button
+                  onClick={() => { setNodes((nds: Node[]) => nds.filter(n => n.id !== selectedNode.id)); setSelectedNode(null); }}
+                  className="ui-btn"
+                  style={{ width: '100%', justifyContent: 'center', background: 'var(--error-soft)', borderColor: 'var(--error)', color: 'var(--error)' }}
+                >
+                  Delete node
+                </button>
               </div>
-            )}
-            
-            <div className="pt-6">
-               <button 
-                onClick={() => {
-                  setNodes((nds: Node[]) => nds.filter(n => n.id !== selectedNode.id));
-                  setSelectedNode(null);
-                }}
-                className="w-full py-2 px-4 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded-md transition-colors"
-               >
-                 Delete Node
-               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
       </div>
 
-      {/* Live Simulation Visualizer */}
-      <div className="bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700 overflow-hidden">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold">Live Simulation</h2>
-          <div className="text-sm font-mono text-gray-400">
-            Time: {uiState.time.toFixed(1)}s
-          </div>
+      {/* Server state visualizer (playback-driven) */}
+      <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '18px 20px', boxShadow: 'var(--shadow-sm)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <span style={{ fontWeight: 650, fontSize: 15, color: 'var(--text)' }}>
+            {runResult ? 'Playback' : 'Station State'}
+          </span>
+          {runResult && (
+            <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+              t = {currentT.toFixed(2)}
+            </span>
+          )}
         </div>
-        
-        <div className="flex flex-col gap-8 py-4 px-4 overflow-x-auto">
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24, overflowX: 'auto' }}>
           {nodes.filter((n: Node<NodeData>) => n.data.type === 'server').map((node: Node<NodeData>) => {
-            const nodeState = uiState.nodeStates[node.id];
-            if (!nodeState) return null;
-            
+            const ns = currentNodeStates[node.id];
+            const queueLength  = ns?.queueLength  ?? 0;
+            const busyServers  = ns?.busyServers   ?? 0;
+            const capacity     = node.data.capacity ?? 1;
+
             return (
-              <div key={node.id} className="flex items-center gap-8 pb-8 border-b border-gray-700 last:border-0 last:pb-0">
-                <div className="w-32 text-right shrink-0">
-                  <div className="font-bold text-gray-200 truncate" title={node.data.label}>{node.data.label}</div>
-                  <div className="text-xs text-gray-500">Capacity: {node.data.capacity}</div>
+              <div key={node.id} style={{ display: 'flex', alignItems: 'center', gap: 24, paddingBottom: 20, borderBottom: '1px solid var(--border)' }}>
+                <div style={{ width: 110, textAlign: 'right', flexShrink: 0 }}>
+                  <div style={{ fontWeight: 650, fontSize: 13, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={node.data.label}>{node.data.label}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-subtle)' }}>cap: {capacity}</div>
                 </div>
-                
-                {/* Queue Area */}
-                <div className="flex-1 min-w-[200px] flex flex-col items-end gap-2 border-r-2 border-dashed border-gray-600 pr-8 relative">
-                  <div className="absolute top-[-20px] right-8 text-xs text-gray-400 font-medium">Queue ({nodeState.queue.length})</div>
-                  <div className="flex gap-2 flex-wrap-reverse justify-end w-full">
-                    {Array.from({ length: Math.min(nodeState.queue.length, 20) }).map((_, i) => (
-                      <div key={i} className="w-6 h-6 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)] animate-pulse" />
+
+                {/* Queue */}
+                <div style={{ flex: 1, minWidth: 160, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, borderRight: '2px dashed var(--border)', paddingRight: 20, position: 'relative' }}>
+                  <div style={{ position: 'absolute', top: -18, right: 20, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>Queue ({queueLength})</div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end', width: '100%' }}>
+                    {Array.from({ length: Math.min(queueLength, 20) }).map((_, i) => (
+                      <div key={i} style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--primary)', opacity: 0.8 }} />
                     ))}
-                    {nodeState.queue.length > 20 && (
-                      <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-[10px] font-bold text-gray-300">
-                        +{nodeState.queue.length - 20}
+                    {queueLength > 20 && (
+                      <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: 'var(--text-muted)' }}>
+                        +{queueLength - 20}
                       </div>
                     )}
-                    {nodeState.queue.length === 0 && (
-                      <div className="text-gray-500 italic h-6 flex items-center text-sm">Empty</div>
+                    {queueLength === 0 && (
+                      <div style={{ fontSize: 12, color: 'var(--text-subtle)', fontStyle: 'italic', height: 20, display: 'flex', alignItems: 'center' }}>Empty</div>
                     )}
                   </div>
                 </div>
 
-                {/* Servers Area */}
-                <div className="flex gap-4 flex-wrap max-w-[400px] relative pt-4">
-                  <div className="absolute top-[-10px] left-0 text-xs text-gray-400 font-medium">Servers</div>
-                  {nodeState.servers.map((server: any, idx: number) => (
-                    <div 
-                      key={idx} 
-                      className={cn(
-                        "w-16 h-16 rounded-xl border-2 flex flex-col items-center justify-center transition-all duration-300 relative overflow-hidden",
-                        server.entity 
-                          ? "border-emerald-500 bg-emerald-500/10 shadow-[0_0_10px_rgba(16,185,129,0.2)]" 
-                          : "border-gray-600 bg-gray-700/50"
-                      )}
-                    >
-                      {server.entity ? (
-                        <div className="w-6 h-6 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] z-10" />
-                      ) : (
-                        <span className="text-gray-500 text-xs font-medium">Idle</span>
-                      )}
-                    </div>
-                  ))}
+                {/* Server slots */}
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', maxWidth: 360, position: 'relative', paddingTop: 14 }}>
+                  <div style={{ position: 'absolute', top: 0, left: 0, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>Servers</div>
+                  {Array.from({ length: capacity }).map((_, idx) => {
+                    const isBusy = idx < busyServers;
+                    return (
+                      <div
+                        key={idx}
+                        style={{
+                          width: 56, height: 56,
+                          borderRadius: 'var(--radius)',
+                          border: `2px solid ${isBusy ? 'var(--success)' : 'var(--border)'}`,
+                          background: isBusy ? 'var(--success-soft)' : 'var(--bg-subtle)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          transition: 'border-color 200ms, background 200ms',
+                        }}
+                      >
+                        {isBusy
+                          ? <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--success)' }} />
+                          : <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>Idle</span>
+                        }
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );
           })}
-          
           {nodes.filter((n: Node<NodeData>) => n.data.type === 'server').length === 0 && (
-            <div className="text-center text-gray-500 italic py-8">
-              Add a Server node to see the live simulation.
+            <div style={{ textAlign: 'center', color: 'var(--text-subtle)', fontStyle: 'italic', padding: '24px 0' }}>
+              Add a Server node to the canvas, then Run.
+            </div>
+          )}
+          {!runResult && nodes.filter((n: Node<NodeData>) => n.data.type === 'server').length > 0 && (
+            <div style={{ textAlign: 'center', color: 'var(--text-subtle)', fontStyle: 'italic', padding: '12px 0', fontSize: 13 }}>
+              Click Run to compute the simulation and enable playback.
             </div>
           )}
         </div>
       </div>
 
-      {/* Metrics Dashboard */}
-      <div className="flex flex-col gap-6">
-        {/* Stats Cards */}
-        <div className="bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700">
-          <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-emerald-400" />
-            Global Performance Metrics
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50">
-              <div className="text-sm text-gray-400 mb-1">Avg Wait Time (Wq)</div>
-              <div className="text-2xl font-bold text-indigo-400">{avgWaitTime}s</div>
-            </div>
-            <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50">
-              <div className="text-sm text-gray-400 mb-1">Avg System Time (W)</div>
-              <div className="text-2xl font-bold text-purple-400">{avgSystemTime}s</div>
-            </div>
-            <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50">
-              <div className="text-sm text-gray-400 mb-1">Total Departures</div>
-              <div className="text-2xl font-bold text-emerald-400">{uiState.stats.totalDepartures}</div>
-            </div>
-            <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50">
-              <div className="text-sm text-gray-400 mb-1">Max Total Queue</div>
-              <div className="text-2xl font-bold text-amber-400">{uiState.stats.maxQueueLength}</div>
-            </div>
+      {/* Performance Metrics */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '18px 20px', boxShadow: 'var(--shadow-sm)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <BarChart3 size={16} style={{ color: 'var(--chart-3)' }} />
+            <span style={{ fontWeight: 650, fontSize: 15, color: 'var(--text)' }}>Performance Metrics</span>
+            {runResult && (
+              <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-subtle)', fontFamily: 'var(--font-mono)' }}>
+                {runResult.runDurationMs.toFixed(0)} ms compute · seed {runResult.seed}
+              </span>
+            )}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 12 }}>
+            {[
+              { label: 'Mean wait time (Wq)',   value: fmt(m?.avgWaitTime),    unit: 'min' },
+              { label: 'Mean sojourn (W)',       value: fmt(m?.avgSojournTime), unit: 'min' },
+              { label: 'Total departures',       value: m ? String(m.totalDepartures) : '—', unit: 'entities' },
+              { label: 'Throughput',             value: m ? m.throughput.toFixed(3) : '—',   unit: '/min' },
+              { label: 'Avg queue length (Lq)',  value: fmt(m?.avgQueueLength), unit: 'entities' },
+              { label: 'Server utilisation (ρ̂)', value: m ? (m.avgUtilization * 100).toFixed(1) : '—', unit: '%' },
+              { label: 'Peak queue length',      value: m ? String(m.maxQueueLength) : '—',   unit: 'entities' },
+              { label: 'Total arrivals',         value: m ? String(m.totalArrivals) : '—',    unit: 'entities' },
+            ].map(kpi => (
+              <div key={kpi.label} className="kpi-tile">
+                <div className="kpi-label">{kpi.label}</div>
+                <div className="kpi-value">{kpi.value}</div>
+                <div className="kpi-unit">{kpi.unit}</div>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Chart */}
-        <div className="bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700 h-[400px] flex flex-col">
-          <h3 className="text-lg font-bold mb-4">Total Queue Length Over Time</h3>
-          <div className="flex-1 w-full min-h-0">
+        {/* Queue length + utilisation dual-axis chart */}
+        <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '18px 20px', height: 320, display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-sm)' }}>
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontWeight: 650, fontSize: 15, color: 'var(--text)' }}>Queue length & utilisation over time</div>
+            <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 2 }}>
+              {runResult
+                ? `Trace up to t = ${currentT.toFixed(1)} min · step through events to scrub`
+                : 'Run the simulation to see queue dynamics'}
+            </div>
+          </div>
+          <div style={{ flex: 1, minHeight: 0 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={uiState.history}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
-                <XAxis 
-                  dataKey="time" 
-                  stroke="#9CA3AF" 
-                  tickFormatter={(val) => `${val}s`}
-                  minTickGap={20}
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+                <XAxis dataKey="time" stroke="var(--chart-axis)" tickFormatter={(v: number) => `${v.toFixed(0)}`} tick={{ fontSize: 11 }} minTickGap={20} label={{ value: 'min', position: 'insideRight', offset: -4, fontSize: 10, fill: 'var(--chart-axis)' }} />
+                <YAxis yAxisId="left" stroke="var(--chart-1)" allowDecimals={false} tick={{ fontSize: 11 }} label={{ value: 'Queue', angle: -90, position: 'insideLeft', fontSize: 10, fill: 'var(--chart-1)' }} />
+                <YAxis yAxisId="right" orientation="right" stroke="var(--chart-3)" domain={[0, 100]} tickFormatter={(v: number) => `${v}%`} tick={{ fontSize: 11 }} label={{ value: 'Util %', angle: 90, position: 'insideRight', fontSize: 10, fill: 'var(--chart-3)' }} />
+                <Tooltip
+                  contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 6, fontSize: 12 }}
+                  formatter={(v: any, name: string) => name === 'Util %' ? [`${Number(v).toFixed(1)}%`, name] : [v, name]}
+                  labelFormatter={(l: any) => `t = ${Number(l).toFixed(1)} min`}
                 />
-                <YAxis stroke="#9CA3AF" allowDecimals={false} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', color: '#F3F4F6' }}
-                  itemStyle={{ color: '#818CF8' }}
-                />
-                <Line 
-                  type="stepAfter" 
-                  dataKey="queueLength" 
-                  name="Total Queue Length"
-                  stroke="#818CF8" 
-                  strokeWidth={2} 
-                  dot={false}
-                  isAnimationActive={false}
-                />
+                <Legend iconSize={10} wrapperStyle={{ fontSize: 11, paddingTop: 4 }} />
+                <Line yAxisId="left"  type="stepAfter" dataKey="queueLength" name="Queue" stroke="var(--chart-1)" strokeWidth={2} dot={false} isAnimationActive={false} />
+                <Line yAxisId="right" type="stepAfter" dataKey="utilPct" name="Util %" stroke="var(--chart-3)" strokeWidth={1.5} strokeDasharray="4 2" dot={false} isAnimationActive={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Code Export Section */}
-        <div className="mt-8 space-y-8">
-          <CodeExport nodes={nodes} edges={edges} />
-          <SimmerCodeExport nodes={nodes} edges={edges} />
-        </div>
+        {/* Event log */}
+        {runResult && (
+          <EventLog
+            trace={runResult.trace}
+            playbackIndex={playbackIndex}
+            nodeNames={nodeNames}
+          />
+        )}
+
+        {/* Wait-time histogram */}
+        {waitHistogram.length > 0 && (
+          <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '18px 20px', height: 260, display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-sm)' }}>
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontWeight: 650, fontSize: 15, color: 'var(--text)' }}>Wait-time distribution</div>
+              <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 2 }}>
+                Entities with arrival ≥ warm-up {runConfig.warmup > 0 ? `(${runConfig.warmup} min)` : ''}
+              </div>
+            </div>
+            <div style={{ flex: 1, minHeight: 0 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={waitHistogram} margin={{ top: 4, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+                  <XAxis dataKey="label" stroke="var(--chart-axis)" tick={{ fontSize: 10 }} minTickGap={15} label={{ value: 'Wait time (min)', position: 'insideBottom', offset: -2, fontSize: 10, fill: 'var(--chart-axis)' }} />
+                  <YAxis stroke="var(--chart-axis)" allowDecimals={false} tick={{ fontSize: 10 }} />
+                  <Tooltip
+                    contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 6, fontSize: 12 }}
+                    formatter={(v: any) => [v, 'Count']}
+                    labelFormatter={(l: any) => `Wq ≥ ${l} min`}
+                  />
+                  <Bar dataKey="count" name="Count" fill="var(--chart-2)" radius={[2, 2, 0, 0]} isAnimationActive={false} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
+        {/* Replication summary (shown for multi-rep runs) */}
+        {runOutput && runOutput.reps.length > 1 && (
+          <ReplicationsPanel output={runOutput} />
+        )}
+
+        {/* M/M/c theory comparison */}
+        {lastCompiledModel && (
+          <TheoryPanel
+            model={lastCompiledModel}
+            simMean={displayMetrics}
+            horizon={runConfig.horizon}
+            warmup={runConfig.warmup}
+          />
+        )}
+
+        {/* Scenario comparison */}
+        {comparison && baseline && alternative && (
+          <ComparisonPanel
+            baseline={baseline}
+            alternative={alternative}
+            comparison={comparison}
+            onLoadBaseline={() => loadScenario(baseline)}
+            onLoadAlternative={() => loadScenario(alternative)}
+          />
+        )}
+
+        {showExport && lastCompiledModel && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginTop: 8 }}>
+            <CodeExport model={lastCompiledModel} config={runConfig} />
+            <SimmerCodeExport model={lastCompiledModel} config={runConfig} />
+          </div>
+        )}
+
       </div>
     </div>
   );

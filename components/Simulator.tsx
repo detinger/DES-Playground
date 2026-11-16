@@ -285,232 +285,196 @@ export default function Simulator() {
     { id: 'e2-3', source: '2', target: '3' },
   ];
 
+  const panelStyle: React.CSSProperties = {
+    background: 'var(--bg-elevated)',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius)',
+    boxShadow: 'var(--shadow-sm)',
+  };
+
+  const sliderRow = (label: string, sub: string, value: string) => (
+    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
+      <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{label}</span>
+      <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--primary)', fontVariantNumeric: 'tabular-nums' }}>{value} {sub}</span>
+    </div>
+  );
+
+  const isUnstable = rho >= 1;
+
   return (
-    <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-      {/* Controls Sidebar */}
-      <div className="lg:col-span-1 bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700">
-        <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-          <Settings className="w-5 h-5 text-indigo-400" />
-          Parameters
-        </h2>
-        
-        <div className="space-y-6">
-          <div>
-            <label className="flex justify-between text-sm font-medium text-gray-300 mb-2">
-              <span>Arrival Rate (λ)</span>
-              <span className="text-indigo-400">{params.arrivalRate.toFixed(1)} /s</span>
-            </label>
-            <input 
-              type="range" 
-              min="0.1" max="10" step="0.1" 
-              value={params.arrivalRate}
-              onChange={(e) => setParams({...params, arrivalRate: parseFloat(e.target.value)})}
-              className="w-full accent-indigo-500"
-            />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: 20, alignItems: 'start' }}>
+
+        {/* Parameters panel */}
+        <div style={{ ...panelStyle, padding: '18px 16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+            <Settings size={15} style={{ color: 'var(--primary)' }} />
+            <span style={{ fontWeight: 650, fontSize: 15, color: 'var(--text)' }}>Parameters</span>
           </div>
 
-          <div>
-            <label className="flex justify-between text-sm font-medium text-gray-300 mb-2">
-              <span>Service Rate (μ)</span>
-              <span className="text-emerald-400">{params.serviceRate.toFixed(1)} /s</span>
-            </label>
-            <input 
-              type="range" 
-              min="0.1" max="10" step="0.1" 
-              value={params.serviceRate}
-              onChange={(e) => setParams({...params, serviceRate: parseFloat(e.target.value)})}
-              className="w-full accent-emerald-500"
-            />
-          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div>
+              {sliderRow('Arrival rate (λ)', '/s', params.arrivalRate.toFixed(1))}
+              <input type="range" min="0.1" max="10" step="0.1" value={params.arrivalRate}
+                onChange={(e) => setParams({...params, arrivalRate: parseFloat(e.target.value)})}
+                style={{ width: '100%', accentColor: 'var(--primary)' }} />
+            </div>
+            <div>
+              {sliderRow('Service rate (μ)', '/s', params.serviceRate.toFixed(1))}
+              <input type="range" min="0.1" max="10" step="0.1" value={params.serviceRate}
+                onChange={(e) => setParams({...params, serviceRate: parseFloat(e.target.value)})}
+                style={{ width: '100%', accentColor: 'var(--chart-3)' }} />
+            </div>
+            <div>
+              {sliderRow('Servers (c)', '', String(params.numServers))}
+              <input type="range" min="1" max="5" step="1" value={params.numServers}
+                onChange={(e) => setParams({...params, numServers: parseInt(e.target.value)})}
+                style={{ width: '100%', accentColor: 'var(--accent)' }} />
+            </div>
+            <div>
+              {sliderRow('Speed', '×', String(params.simulationSpeed))}
+              <input type="range" min="0.5" max="10" step="0.5" value={params.simulationSpeed}
+                onChange={(e) => setParams({...params, simulationSpeed: parseFloat(e.target.value)})}
+                style={{ width: '100%', accentColor: 'var(--chart-2)' }} />
+            </div>
 
-          <div>
-            <label className="flex justify-between text-sm font-medium text-gray-300 mb-2">
-              <span>Servers (c)</span>
-              <span className="text-amber-400">{params.numServers}</span>
-            </label>
-            <input 
-              type="range" 
-              min="1" max="5" step="1" 
-              value={params.numServers}
-              onChange={(e) => setParams({...params, numServers: parseInt(e.target.value)})}
-              className="w-full accent-amber-500"
-            />
-          </div>
-
-          <div>
-            <label className="flex justify-between text-sm font-medium text-gray-300 mb-2">
-              <span>Simulation Speed</span>
-              <span className="text-purple-400">{params.simulationSpeed}x</span>
-            </label>
-            <input 
-              type="range" 
-              min="0.5" max="10" step="0.5" 
-              value={params.simulationSpeed}
-              onChange={(e) => setParams({...params, simulationSpeed: parseFloat(e.target.value)})}
-              className="w-full accent-purple-500"
-            />
-          </div>
-
-          <div className="pt-4 border-t border-gray-700 flex gap-3">
-            <button 
-              onClick={() => setIsRunning(!isRunning)}
-              className={cn(
-                "flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg font-medium transition-colors",
-                isRunning ? "bg-red-500/20 text-red-400 hover:bg-red-500/30" : "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
-              )}
-            >
-              {isRunning ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-              {isRunning ? 'Pause' : 'Start'}
-            </button>
-            <button 
-              onClick={resetSimulation}
-              className="p-2 bg-gray-700 text-gray-300 hover:bg-gray-600 rounded-lg transition-colors"
-              title="Reset Simulation"
-            >
-              <RotateCcw className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Visualization & Metrics */}
-      <div className="lg:col-span-3 space-y-6">
-        
-        {/* Visualizer */}
-        <div className="bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700 overflow-hidden">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-bold">Live Simulation</h2>
-            <div className="text-sm font-mono text-gray-400">
-              Time: {uiState.time.toFixed(1)}s
+            <div style={{ paddingTop: 12, borderTop: '1px solid var(--border)', display: 'flex', gap: 8 }}>
+              <button onClick={() => setIsRunning(!isRunning)} className="ui-btn"
+                style={isRunning
+                  ? { flex: 1, justifyContent: 'center', background: 'var(--error-soft)', borderColor: 'var(--error)', color: 'var(--error)' }
+                  : { flex: 1, justifyContent: 'center', background: 'var(--primary)', borderColor: 'var(--primary)', color: 'var(--text-on-primary)' }
+                }>
+                {isRunning ? <Pause size={14} /> : <Play size={14} />}
+                {isRunning ? 'Pause' : 'Run'}
+              </button>
+              <button onClick={resetSimulation} className="icon-btn" title="Reset">
+                <RotateCcw size={15} />
+              </button>
             </div>
           </div>
-          
-          <div className="flex items-center gap-8 py-8 px-4 overflow-x-auto">
-            {/* Queue Area */}
-            <div className="flex-1 min-w-[300px] flex flex-col items-end gap-2 border-r-2 border-dashed border-gray-600 pr-8 relative">
-              <div className="absolute top-[-30px] right-8 text-sm text-gray-400 font-medium">Queue ({uiState.queueLength})</div>
-              <div className="flex gap-2 flex-wrap-reverse justify-end w-full">
-                {Array.from({ length: Math.min(uiState.queueLength, MAX_QUEUE_VISUAL) }).map((_, i) => (
-                  <div key={i} className="w-8 h-8 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)] animate-pulse" />
-                ))}
-                {uiState.queueLength > MAX_QUEUE_VISUAL && (
-                  <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-300">
-                    +{uiState.queueLength - MAX_QUEUE_VISUAL}
+
+          {/* Stability indicator */}
+          {isUnstable && (
+            <div style={{ marginTop: 12, padding: '8px 10px', background: 'var(--warning-soft)', border: '1px solid color-mix(in srgb, var(--warning) 35%, transparent)', borderRadius: 'var(--radius-sm)', fontSize: 12, color: 'var(--warning)', lineHeight: 1.4 }}>
+              ρ = {rho.toFixed(2)} ≥ 1. No finite steady state under these assumptions — queue may grow without bound.
+            </div>
+          )}
+        </div>
+
+        {/* Right column */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
+
+          {/* Live visualizer */}
+          <div style={{ ...panelStyle, padding: '18px 20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <span style={{ fontWeight: 650, fontSize: 15, color: 'var(--text)' }}>Live Simulation</span>
+              <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+                t = {uiState.time.toFixed(1)} s
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 24, overflowX: 'auto', padding: '16px 0' }}>
+              {/* Queue */}
+              <div style={{ flex: 1, minWidth: 200, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, borderRight: '2px dashed var(--border)', paddingRight: 20, position: 'relative' }}>
+                <div style={{ position: 'absolute', top: -20, right: 20, fontSize: 11, fontWeight: 600, color: 'var(--text-muted)' }}>Queue ({uiState.queueLength})</div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end', width: '100%' }}>
+                  {Array.from({ length: Math.min(uiState.queueLength, MAX_QUEUE_VISUAL) }).map((_, i) => (
+                    <div key={i} style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--primary)', opacity: 0.8 }} />
+                  ))}
+                  {uiState.queueLength > MAX_QUEUE_VISUAL && (
+                    <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--bg-subtle)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: 'var(--text-muted)' }}>
+                      +{uiState.queueLength - MAX_QUEUE_VISUAL}
+                    </div>
+                  )}
+                  {uiState.queueLength === 0 && (
+                    <div style={{ fontSize: 12, color: 'var(--text-subtle)', fontStyle: 'italic', height: 24, display: 'flex', alignItems: 'center' }}>Empty</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Servers */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {uiState.servers.map(server => (
+                  <div key={server.id} style={{
+                    width: 72, height: 72,
+                    borderRadius: 'var(--radius)',
+                    border: `2px solid ${server.currentEntity ? 'var(--success)' : 'var(--border)'}`,
+                    background: server.currentEntity ? 'var(--success-soft)' : 'var(--bg-subtle)',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                    transition: 'border-color 300ms, background 300ms',
+                    position: 'relative', overflow: 'hidden',
+                  }}>
+                    {server.currentEntity ? (
+                      <>
+                        <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--success)', zIndex: 1 }} />
+                        <div style={{
+                          position: 'absolute', bottom: 0, left: 0, height: 3,
+                          background: 'var(--success)',
+                          width: `${Math.max(0, 100 - (server.remainingServiceTime * params.serviceRate * 100))}%`,
+                          transition: 'width 100ms',
+                        }} />
+                      </>
+                    ) : (
+                      <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>Idle</span>
+                    )}
                   </div>
-                )}
-                {uiState.queueLength === 0 && (
-                  <div className="text-gray-500 italic h-8 flex items-center">Empty</div>
-                )}
+                ))}
+              </div>
+
+              {/* Departures */}
+              <div style={{ paddingLeft: 20, borderLeft: '2px dashed var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 90 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>Completed</div>
+                <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>{uiState.stats.totalDepartures}</div>
               </div>
             </div>
+          </div>
 
-            {/* Servers Area */}
-            <div className="flex flex-col gap-4">
-              <div className="absolute top-[-30px] text-sm text-gray-400 font-medium">Servers</div>
-              {uiState.servers.map(server => (
-                <div 
-                  key={server.id} 
-                  className={cn(
-                    "w-24 h-24 rounded-xl border-2 flex flex-col items-center justify-center transition-all duration-300 relative overflow-hidden",
-                    server.currentEntity 
-                      ? "border-emerald-500 bg-emerald-500/10 shadow-[0_0_15px_rgba(16,185,129,0.2)]" 
-                      : "border-gray-600 bg-gray-700/50"
-                  )}
-                >
-                  {server.currentEntity ? (
-                    <>
-                      <div className="w-8 h-8 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)] z-10" />
-                      {/* Progress bar background */}
-                      <div 
-                        className="absolute bottom-0 left-0 h-1 bg-emerald-500 transition-all duration-100"
-                        style={{ width: `${Math.max(0, 100 - (server.remainingServiceTime * params.serviceRate * 100))}%` }}
-                      />
-                    </>
-                  ) : (
-                    <span className="text-gray-500 text-sm font-medium">Idle</span>
-                  )}
+          {/* KPI tiles */}
+          <div style={{ ...panelStyle, padding: '18px 20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+              <BarChart3 size={15} style={{ color: 'var(--chart-3)' }} />
+              <span style={{ fontWeight: 650, fontSize: 15, color: 'var(--text)' }}>Performance Metrics</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
+              {[
+                { label: 'Mean wait time (Wq)', value: avgWaitTime, unit: 's', theory: `Theory: ${theoreticalWaitTime} s` },
+                { label: 'Mean system time (W)', value: avgSystemTime, unit: 's', theory: null },
+                { label: 'Utilisation (ρ̂)', value: utilization, unit: '%', theory: `Theory: ${(rho * 100).toFixed(1)}%` },
+                { label: 'Peak queue length', value: String(uiState.stats.maxQueueLength), unit: '', theory: `Avg theory: ${theoreticalQueueLength}` },
+              ].map(kpi => (
+                <div key={kpi.label} className="kpi-tile">
+                  <div className="kpi-label">{kpi.label}</div>
+                  <div className="kpi-value">{kpi.value}<span style={{ fontSize: 13, fontWeight: 400, marginLeft: 2 }}>{kpi.unit}</span></div>
+                  {kpi.theory && <div className="kpi-unit">{kpi.theory}</div>}
                 </div>
               ))}
             </div>
-
-            {/* Departures Area */}
-            <div className="pl-8 border-l-2 border-dashed border-gray-600 flex flex-col items-center justify-center min-w-[120px]">
-              <div className="text-sm text-gray-400 font-medium mb-2">Completed</div>
-              <div className="text-3xl font-bold text-gray-200">{uiState.stats.totalDepartures}</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Metrics Dashboard */}
-        <div className="flex flex-col gap-6">
-          {/* Stats Cards */}
-          <div className="bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700">
-            <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-emerald-400" />
-              Performance Metrics
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50">
-                <div className="text-sm text-gray-400 mb-1">Avg Wait Time (Wq)</div>
-                <div className="text-2xl font-bold text-indigo-400">{avgWaitTime}s</div>
-                <div className="text-xs text-gray-500 mt-1">Theory: {theoreticalWaitTime}s</div>
-              </div>
-              <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50">
-                <div className="text-sm text-gray-400 mb-1">Avg System Time (W)</div>
-                <div className="text-2xl font-bold text-purple-400">{avgSystemTime}s</div>
-              </div>
-              <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50">
-                <div className="text-sm text-gray-400 mb-1">Utilization (ρ)</div>
-                <div className="text-2xl font-bold text-emerald-400">{utilization}%</div>
-                <div className="text-xs text-gray-500 mt-1">Theory: {(rho * 100).toFixed(1)}%</div>
-              </div>
-              <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50">
-                <div className="text-sm text-gray-400 mb-1">Max Queue Length</div>
-                <div className="text-2xl font-bold text-amber-400">{uiState.stats.maxQueueLength}</div>
-                <div className="text-xs text-gray-500 mt-1">Avg Theory: {theoreticalQueueLength}</div>
-              </div>
-            </div>
           </div>
 
-          {/* Chart */}
-          <div className="bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700 h-[400px] flex flex-col">
-            <h3 className="text-lg font-bold mb-4">Queue Length Over Time</h3>
-            <div className="flex-1 w-full min-h-0">
+          {/* Queue chart */}
+          <div style={{ ...panelStyle, padding: '18px 20px', height: 340, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontWeight: 650, fontSize: 15, color: 'var(--text)' }}>Queue length over time</div>
+              <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 2 }}>Waiting entities (time-stepped)</div>
+            </div>
+            <div style={{ flex: 1, minHeight: 0 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={uiState.history}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
-                <XAxis 
-                  dataKey="time" 
-                  stroke="#9CA3AF" 
-                  tickFormatter={(val) => `${val}s`}
-                  minTickGap={20}
-                />
-                <YAxis stroke="#9CA3AF" allowDecimals={false} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', color: '#F3F4F6' }}
-                  itemStyle={{ color: '#818CF8' }}
-                />
-                <Line 
-                  type="stepAfter" 
-                  dataKey="queueLength" 
-                  name="Queue Length"
-                  stroke="#818CF8" 
-                  strokeWidth={2} 
-                  dot={false}
-                  isAnimationActive={false}
-                />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+                  <XAxis dataKey="time" stroke="var(--chart-axis)" tickFormatter={(v) => `${v}s`} tick={{ fontSize: 11 }} minTickGap={20} />
+                  <YAxis stroke="var(--chart-axis)" allowDecimals={false} tick={{ fontSize: 11 }} />
+                  <Tooltip contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 6, fontSize: 12 }} />
+                  <Line type="stepAfter" dataKey="queueLength" name="Queue length" stroke="var(--chart-1)" strokeWidth={2} dot={false} isAnimationActive={false} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
           </div>
+
         </div>
-
-      </div>
       </div>
 
-      {/* Code Export Section */}
-      <div className="mt-8 space-y-8">
+      {/* Code exports */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginTop: 8 }}>
         <CodeExport nodes={syntheticNodes} edges={syntheticEdges} />
         <SimmerCodeExport nodes={syntheticNodes} edges={syntheticEdges} />
       </div>

@@ -1,22 +1,27 @@
 import React, { useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { Copy, Check, Play } from 'lucide-react';
+import { vscDarkPlus, vs } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { Copy, Check, Play, Download, AlertTriangle } from 'lucide-react';
 import { generateSimmerCode } from '../lib/simmerGenerator';
-import { Node, Edge } from '@xyflow/react';
-import { NodeData } from '../types';
+import { DesModel } from '../lib/model';
+import { RunConfig } from '../lib/engine';
 
 interface SimmerCodeExportProps {
-  nodes: Node<NodeData>[];
-  edges: Edge[];
+  model: DesModel | null;
+  config: RunConfig;
 }
 
-export default function SimmerCodeExport({ nodes, edges }: SimmerCodeExportProps) {
-  const [code, setCode] = useState('');
-  const [copied, setCopied] = useState(false);
+export default function SimmerCodeExport({ model, config }: SimmerCodeExportProps) {
+  const [code, setCode]           = useState('');
+  const [codeModel, setCodeModel] = useState<DesModel | null>(null);
+  const [copied, setCopied]       = useState(false);
+
+  const isStale = code !== '' && model !== null && model !== codeModel;
 
   const handleGenerate = () => {
-    setCode(generateSimmerCode(nodes, edges));
+    if (!model) return;
+    setCode(generateSimmerCode(model, config));
+    setCodeModel(model);
   };
 
   const handleCopy = () => {
@@ -26,63 +31,99 @@ export default function SimmerCodeExport({ nodes, edges }: SimmerCodeExportProps
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleDownload = () => {
+    if (!code) return;
+    const blob = new Blob([code], { type: 'text/x-r-source' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = `${model?.name ?? 'simulation'}.R`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
-    <div className="max-w-5xl mx-auto">
-      <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700 overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700 bg-gray-900/50">
+    <div>
+      <div style={{
+        background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+        borderRadius: 'var(--radius)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)',
+      }}>
+        {/* Header — title + stale badge */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '12px 18px', borderBottom: '1px solid var(--border)',
+          background: 'var(--bg-subtle)', gap: 12, flexWrap: 'wrap',
+        }}>
           <div>
-            <h2 className="text-xl font-bold text-gray-200">R Simmer Code Export</h2>
-            <p className="text-sm text-gray-400 mt-1">Generate R simulation code from your visual model.</p>
-          </div>
-          <div className="flex gap-3">
-            <button 
-              onClick={handleGenerate}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30 rounded-lg transition-colors font-medium text-sm"
-            >
-              <Play className="w-4 h-4" />
-              Generate from Model
-            </button>
-            <button 
-              onClick={handleCopy}
-              disabled={!code}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors font-medium text-sm ${
-                code 
-                  ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30' 
-                  : 'bg-gray-700 text-gray-500 cursor-not-allowed'
-              }`}
-            >
-              {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-              {copied ? 'Copied!' : 'Copy Code'}
-            </button>
-          </div>
-        </div>
-        
-        <div className="p-4 bg-[#1e1e1e] overflow-x-auto min-h-[300px]">
-          {code ? (
-            <SyntaxHighlighter 
-              language="r" 
-              style={vscDarkPlus}
-              customStyle={{ margin: 0, padding: '1rem', background: 'transparent' }}
-              showLineNumbers
-            >
-              {code}
-            </SyntaxHighlighter>
-          ) : (
-            <div className="flex items-center justify-center h-full text-gray-500 italic">
-              Click "Generate from Model" to create the R simmer script.
+            <div style={{ fontWeight: 650, fontSize: 15, color: 'var(--text)' }}>R simmer Code Export</div>
+            <div style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 2 }}>
+              {!model
+                ? 'Run the simulation first to enable code generation'
+                : code
+                ? `Generated from '${model.name}' · R 4.1+ / simmer`
+                : 'Generate executable R simulation code'}
             </div>
+          </div>
+          {isStale && (
+            <span style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              fontSize: 11, color: 'var(--warning)',
+              background: 'var(--warning-soft)', border: '1px solid var(--warning)',
+              borderRadius: 4, padding: '3px 8px',
+            }}>
+              <AlertTriangle size={11} /> Model updated — regenerate
+            </span>
           )}
         </div>
+
+        {/* Code pane with floating action buttons top-right */}
+        <div style={{ position: 'relative', background: 'var(--bg-sunken)', minHeight: 280 }}>
+          <div style={{
+            position: 'absolute', top: 10, right: 10, zIndex: 10,
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            <button
+              onClick={handleGenerate}
+              disabled={!model}
+              className="ui-btn ui-btn--primary"
+              style={!model ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
+            >
+              <Play size={13} />
+              {code ? 'Regenerate' : 'Generate'}
+            </button>
+            <button onClick={handleCopy} disabled={!code} className="ui-btn" style={!code ? { opacity: 0.4, cursor: 'not-allowed' } : {}}>
+              {copied ? <Check size={13} /> : <Copy size={13} />}
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+            <button onClick={handleDownload} disabled={!code} className="ui-btn" style={!code ? { opacity: 0.4, cursor: 'not-allowed' } : {}}>
+              <Download size={13} /> .R
+            </button>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            {code ? (
+              <SyntaxHighlighter
+                language="r"
+                style={document.documentElement.getAttribute('data-theme') === 'light' ? vs : vscDarkPlus}
+                customStyle={{ margin: 0, padding: '16px', background: 'transparent', fontSize: 12, lineHeight: 1.55 }}
+                showLineNumbers
+              >
+                {code}
+              </SyntaxHighlighter>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 280, color: 'var(--text-subtle)', fontStyle: 'italic', fontSize: 13 }}>
+                {model ? 'Click "Generate" to create the R simmer script from your model.' : 'Run the simulation first, then click Generate.'}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
-      
-      <div className="mt-8 bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700">
-        <h3 className="text-lg font-bold text-gray-200 mb-4">How to run locally or in RStudio</h3>
-        <ol className="list-decimal list-inside space-y-3 text-gray-300">
-          <li>Ensure you have R installed on your system or use RStudio.</li>
-          <li>Install the required packages by running: <code className="bg-gray-900 px-2 py-1 rounded text-emerald-400">install.packages(c("simmer", "simmer.plot"))</code></li>
-          <li><strong>Copy</strong> the generated code from this page.</li>
-          <li><strong>Paste</strong> it into a new R script (e.g., <code className="bg-gray-900 px-2 py-1 rounded text-emerald-400">simulation.R</code>).</li>
-          <li>Run the script! You will see the simulation output and plots in your R environment.</li>
+
+      {/* How-to card */}
+      <div style={{ marginTop: 14, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '16px 20px', boxShadow: 'var(--shadow-sm)' }}>
+        <div style={{ fontWeight: 650, fontSize: 14, color: 'var(--text)', marginBottom: 10 }}>How to run in RStudio or R console</div>
+        <ol style={{ margin: 0, padding: '0 0 0 18px', display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, color: 'var(--text-muted)' }}>
+          <li>Ensure R 4.1+ is installed or use RStudio / Posit Cloud.</li>
+          <li>Install packages: <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, background: 'var(--bg-sunken)', border: '1px solid var(--border)', borderRadius: 4, padding: '1px 6px', color: 'var(--text)' }}>install.packages(c("simmer", "simmer.plot"))</code></li>
+          <li>Download the generated script and source it, or paste into an R console.</li>
+          <li>simmer computes time-weighted resource metrics automatically via <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, background: 'var(--bg-sunken)', border: '1px solid var(--border)', borderRadius: 4, padding: '1px 6px', color: 'var(--text)' }}>get_mon_resources()</code>.</li>
         </ol>
       </div>
     </div>
