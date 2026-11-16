@@ -1,3 +1,4 @@
+import { EXAMPLES, CHALLENGES } from './lib/theoryContent';
 import React, { useState, useEffect, useCallback } from 'react';
 import Simulator from './components/Simulator';
 import Editor from './components/Editor';
@@ -5,7 +6,6 @@ import Theory from './components/Theory';
 import Home from './components/Home';
 import { clearAppData, readPreference, savePreference } from './lib/appStorage';
 import {
-  Activity,
   House,
   LayoutDashboard,
   Share2,
@@ -58,8 +58,8 @@ const NAV_ITEMS: { id: TabId; label: string; icon: React.ReactNode }[] = [
 const TAB_TITLES: Record<TabId, { title: string; subtitle: string }> = {
   home:       { title: 'Home', subtitle: 'Overview, quick starts and preferences' },
   theory:     { title: 'Lessons',          subtitle: 'DES concepts and queueing fundamentals' },
-  examples:   { title: 'Examples',         subtitle: '5 pre-built models illustrating key queueing concepts' },
-  challenges: { title: 'Challenges',       subtitle: 'Test your DES knowledge — 5 assessed problems' },
+  examples:   { title: 'Examples',         subtitle: `${EXAMPLES.length} models and case studies to explore` },
+  challenges: { title: 'Challenges',       subtitle: `Test your DES knowledge — ${CHALLENGES.length} assessed problems` },
   playground: { title: 'M/M/c Visualizer', subtitle: 'Interactive simulation with live charts' },
   editor:     { title: 'Model Explorer',   subtitle: 'Build, run and export DES models' },
 };
@@ -161,7 +161,7 @@ function App() {
       <aside className={`app-sidebar${collapsed ? ' is-collapsed' : ''}`} aria-label="Main navigation">
         <div className="sidebar-brand">
           <div className="sidebar-brand-mark" aria-hidden="true">
-            <Activity size={16} style={{ color: 'var(--text-on-primary)' }} />
+            <img src="/favicon.svg" width={30} height={30} alt="" />
           </div>
           {!collapsed && (
             <div style={{ overflow: 'hidden' }}>
@@ -251,7 +251,7 @@ function App() {
               }
             />
           )}
-          {activeTab === 'playground' && <Simulator />}
+          {activeTab === 'playground' && <Simulator headerActionsElement={editorActionsElement} />}
           {activeTab === 'editor'     && (
             <Editor
               headerActionsElement={editorActionsElement}

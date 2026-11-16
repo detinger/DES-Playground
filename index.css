@@ -167,7 +167,7 @@ body {
 
 .sidebar-brand-name {
   font-size: 15px;
-  font-weight: 650;
+  font-weight: 700;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
@@ -270,7 +270,7 @@ body {
 
 .toolbar-title {
   font-size: 16px;
-  font-weight: 650;
+  font-weight: 700;
   color: var(--text);
   letter-spacing: -0.01em;
 }
@@ -361,6 +361,13 @@ body {
   border-color: var(--primary-hover);
 }
 
+.ui-btn--success,
+.ui-btn--success:hover {
+  background: var(--success-soft);
+  border-color: var(--success);
+  color: var(--success);
+}
+
 .ui-btn--sm {
   height: 28px;
   padding: 0 8px;
@@ -383,22 +390,44 @@ body {
   height: 600px;
   min-width: 0;
   min-height: 180px;
-  resize: vertical;
+  isolation: isolate;
   overflow: hidden;
 }
 
-/* Keep the native resize grip visible over the canvas in both themes. */
-.editor-canvas-area::after {
+/* A real pointer target above React Flow and the properties panel. */
+.editor-canvas-resize-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 32px;
+  height: 32px;
+  z-index: 20;
+  cursor: ns-resize;
+  touch-action: none;
+  user-select: none;
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border-strong);
+  border-left: 1px solid var(--border-strong);
+  border-top-left-radius: 6px;
+}
+
+.editor-canvas-resize-handle::after {
   content: '';
   position: absolute;
-  right: 2px;
-  bottom: 2px;
-  width: 14px;
-  height: 14px;
+  right: 5px;
+  bottom: 5px;
+  width: 16px;
+  height: 16px;
   background: repeating-linear-gradient(135deg, transparent 0 3px, var(--text-subtle) 3px 4px, transparent 4px 6px);
   clip-path: polygon(100% 0, 100% 100%, 0 100%);
   pointer-events: none;
-  z-index: 10;
+}
+
+.editor-canvas-resize-handle:hover,
+.editor-canvas-resize-handle:focus-visible {
+  background: var(--primary-soft);
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
 }
 
 .editor-component-palette {
@@ -597,3 +626,25 @@ body {
 }
 
 .toolbar-actions { display: flex; align-items: center; flex-shrink: 0; }
+
+/* Locally rendered MathJax and formal specifications. */
+.math-formula { display: inline-block; max-width: 100%; vertical-align: middle; color: inherit; }
+.math-formula mjx-container { margin: 0 !important; max-width: 100%; }
+.math-display { display: block; overflow-x: auto; padding: 8px 0; }
+.math-display mjx-container { text-align: left !important; }
+.formal-model { border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-elevated); min-width: 0; }
+.formal-model summary { cursor: pointer; padding: 13px 16px; font-weight: 700; font-size: 14px; }
+.formal-model summary span { margin-left: 8px; font-size: 12px; font-weight: 400; color: var(--text-subtle); }
+.formal-model-body { border-top: 1px solid var(--border); padding: 16px; display: grid; gap: 16px; }
+.formal-model-row { min-width: 0; font-size: 13px; }
+.formal-model-row p, .case-lab p { color: var(--text-muted); font-size: 13px; line-height: 1.6; margin: 4px 0; }
+.case-lab { display: grid; gap: 18px; min-width: 0; }
+.case-lab-controls { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
+.case-lab-controls label { display: grid; gap: 6px; font-size: 12px; color: var(--text-muted); }
+.case-lab-controls input { width: 140px; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-sunken); color: var(--text); }
+.case-metrics { display: grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap: 10px; }
+.case-baseline { font-size: 11px; color: var(--text-subtle); margin-top: 6px; }
+.case-event-log { max-height: 300px; overflow: auto; font-size: 12px; }
+.case-event-log table { width: 100%; text-align: left; border-collapse: collapse; }
+.case-event-log td, .case-event-log th { padding: 6px; border-bottom: 1px solid var(--border); }
+.reference-link { color: var(--primary); text-decoration: underline; font-size: 12px; }

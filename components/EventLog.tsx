@@ -21,10 +21,24 @@ export default function EventLog({ trace, playbackIndex, nodeNames }: EventLogPr
   const currentRowRef = useRef<HTMLTableRowElement>(null);
   const containerRef  = useRef<HTMLDivElement>(null);
 
-  // Scroll active row into view
+  // Follow playback inside the log only. scrollIntoView also scrolls the page.
   useEffect(() => {
-    currentRowRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }, [playbackIndex]);
+    const container = containerRef.current;
+    const row = currentRowRef.current;
+    if (!container || !row) return;
+
+    const viewport = container.getBoundingClientRect();
+    const rowBounds = row.getBoundingClientRect();
+    const headerHeight = container.querySelector('thead')?.getBoundingClientRect().height ?? 0;
+    const visibleTop = viewport.top + container.clientTop + headerHeight;
+    const visibleBottom = viewport.top + container.clientTop + container.clientHeight;
+
+    if (rowBounds.top < visibleTop) {
+      container.scrollTop += rowBounds.top - visibleTop;
+    } else if (rowBounds.bottom > visibleBottom) {
+      container.scrollTop += rowBounds.bottom - visibleBottom;
+    }
+  }, [playbackIndex, trace]);
 
   if (!trace.length) {
     return (
@@ -81,7 +95,7 @@ export default function EventLog({ trace, playbackIndex, nodeNames }: EventLogPr
       </div>
 
       {/* Table */}
-      <div ref={containerRef} style={{ maxHeight: 300, overflowY: 'auto' }}>
+      <div ref={containerRef} style={{ maxHeight: 300, overflowY: 'auto', overflowAnchor: 'none' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
           <thead>
             <tr>

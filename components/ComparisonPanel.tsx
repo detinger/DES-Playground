@@ -1,3 +1,4 @@
+import { MathText } from './Math';
 import React from 'react';
 import { Scenario, ScenarioComparison, ComparisonKpi } from '../lib/scenarios';
 import { GitCompare } from 'lucide-react';
@@ -154,7 +155,7 @@ export default function ComparisonPanel({ baseline, alternative, comparison, onL
               return (
                 <tr key={kpi.key}>
                   <td style={{ ...tdStyle, fontFamily: 'var(--font-sans)', color: 'var(--text-muted)', fontWeight: 500 }}>
-                    {kpi.label}
+                    <MathText>{kpi.label}</MathText>
                     {kpi.unit && <span style={{ fontSize: 10, color: 'var(--text-subtle)', marginLeft: 3 }}>{kpi.unit}</span>}
                   </td>
                   <td style={{ ...tdStyle, textAlign: 'right', color: 'var(--chart-1)' }}>

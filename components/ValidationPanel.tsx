@@ -1,6 +1,7 @@
+import { MathText } from './Math';
 import React, { useState } from 'react';
 import { ValidationResult, ValidationIssue, Severity } from '../lib/model';
-import { AlertCircle, AlertTriangle, Info, Lightbulb, ChevronDown, ChevronRight, CheckCircle2, XCircle } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Info, Lightbulb, ChevronDown, ChevronRight, XCircle } from 'lucide-react';
 
 interface ValidationPanelProps {
   result: ValidationResult;
@@ -62,7 +63,7 @@ function IssueRow({ issue, onSelectNode }: { issue: ValidationIssue; onSelectNod
       >
         <span style={{ color: meta.colorVar, flexShrink: 0, marginTop: 1 }}>{meta.icon}</span>
         <span style={{ flex: 1, fontSize: 13, color: 'var(--text)', fontWeight: 500, lineHeight: 1.4 }}>
-          {issue.title}
+          <MathText>{issue.title}</MathText>
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
           {issue.nodeId && onSelectNode && (
@@ -93,14 +94,14 @@ function IssueRow({ issue, onSelectNode }: { issue: ValidationIssue; onSelectNod
           display: 'flex', flexDirection: 'column', gap: 6,
         }}>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-            <span style={{ fontWeight: 650, color: 'var(--text)' }}>Why:</span> {issue.explanation}
+            <span style={{ fontWeight: 650, color: 'var(--text)' }}>Why:</span> <MathText>{issue.explanation}</MathText>
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-            <span style={{ fontWeight: 650, color: 'var(--text)' }}>Consequence:</span> {issue.consequence}
+            <span style={{ fontWeight: 650, color: 'var(--text)' }}>Consequence:</span> <MathText>{issue.consequence}</MathText>
           </div>
           {issue.suggestedFix && (
             <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-              <span style={{ fontWeight: 650, color: 'var(--text)' }}>Fix:</span> {issue.suggestedFix}
+              <span style={{ fontWeight: 650, color: 'var(--text)' }}>Fix:</span> <MathText>{issue.suggestedFix}</MathText>
             </div>
           )}
           <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
@@ -138,22 +139,7 @@ export default function ValidationPanel({ result, onSelectNode }: ValidationPane
     (a, b) => SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity)
   );
 
-  if (issues.length === 0) {
-    return (
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 10,
-        background: 'var(--success-soft)',
-        border: '1px solid var(--success)',
-        borderRadius: 'var(--radius)',
-        padding: '12px 18px',
-        color: 'var(--success)',
-        fontSize: 13, fontWeight: 600,
-      }}>
-        <CheckCircle2 size={16} />
-        Model is valid — no issues found.
-      </div>
-    );
-  }
+  if (issues.length === 0) return null;
 
   const summaryBg = hasErrors
     ? 'var(--error-soft)'

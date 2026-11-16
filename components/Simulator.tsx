@@ -1,5 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Play, Pause, RotateCcw, Settings, BarChart3 } from 'lucide-react';
+import FormalModel from './FormalModel';
+import { MathFormula, MathText } from './Math';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
+import { compileModel } from '../lib/compiler';
+import { DEFAULT_RUN_CONFIG } from '../lib/engine';
+import { Code2, Play, Pause, RotateCcw, Settings, BarChart3 } from 'lucide-react';
 import { SimulationParams, Entity, ServerState, SimulationStats, NodeData } from '../types';
 import { cn } from '../lib/utils';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -10,7 +15,12 @@ import SimmerCodeExport from './SimmerCodeExport';
 const TICK_RATE_MS = 50; // 20 ticks per second
 const MAX_QUEUE_VISUAL = 20;
 
-export default function Simulator() {
+export default function Simulator({ headerActionsElement }: { headerActionsElement: HTMLDivElement | null }) {
+  const [showExport, setShowExport] = useState(false);
+  const exportPanelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (showExport) exportPanelRef.current?.scrollIntoView({ block: 'start' });
+  }, [showExport]);
   const [params, setParams] = useState<SimulationParams>({
     arrivalRate: 2.0, // arrivals per second
     serviceRate: 2.5, // services per second
@@ -247,43 +257,47 @@ export default function Simulator() {
     }
   }
 
-  const syntheticNodes: Node<NodeData>[] = [
-    {
-      id: '1',
-      type: 'source',
-      position: { x: 0, y: 0 },
-      data: {
-        label: 'Arrivals',
+  const exportModel = useMemo(() => {
+    const syntheticNodes: Node<NodeData>[] = [
+      {
+        id: '1',
         type: 'source',
-        distribution: { type: 'exponential', mean: 1 / params.arrivalRate },
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'Arrivals',
+          type: 'source',
+          distribution: { type: 'exponential', mean: 1 / params.arrivalRate },
+        },
       },
-    },
-    {
-      id: '2',
-      type: 'server',
-      position: { x: 0, y: 0 },
-      data: {
-        label: 'Process',
+      {
+        id: '2',
         type: 'server',
-        capacity: params.numServers,
-        distribution: { type: 'exponential', mean: 1 / params.serviceRate },
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'Process',
+          type: 'server',
+          capacity: params.numServers,
+          distribution: { type: 'exponential', mean: 1 / params.serviceRate },
+        },
       },
-    },
-    {
-      id: '3',
-      type: 'sink',
-      position: { x: 0, y: 0 },
-      data: {
-        label: 'Departures',
+      {
+        id: '3',
         type: 'sink',
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'Departures',
+          type: 'sink',
+        },
       },
-    },
-  ];
+    ];
 
-  const syntheticEdges: Edge[] = [
-    { id: 'e1-2', source: '1', target: '2' },
-    { id: 'e2-3', source: '2', target: '3' },
-  ];
+    const syntheticEdges: Edge[] = [
+      { id: 'e1-2', source: '1', target: '2' },
+      { id: 'e2-3', source: '2', target: '3' },
+    ];
+
+    return compileModel(syntheticNodes, syntheticEdges, { name: 'MMC Visualizer', unit: 'second' });
+  }, [params.arrivalRate, params.serviceRate, params.numServers]);
 
   const panelStyle: React.CSSProperties = {
     background: 'var(--bg-elevated)',
@@ -294,7 +308,7 @@ export default function Simulator() {
 
   const sliderRow = (label: string, sub: string, value: string) => (
     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
-      <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{label}</span>
+      <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}><MathText>{label}</MathText></span>
       <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--primary)', fontVariantNumeric: 'tabular-nums' }}>{value} {sub}</span>
     </div>
   );
@@ -303,6 +317,14 @@ export default function Simulator() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {headerActionsElement && createPortal(
+        <button onClick={() => setShowExport(s => !s)}
+          className={`ui-btn${showExport ? ' ui-btn--primary' : ''}`}
+          title="Toggle Python / R code export" aria-expanded={showExport}
+          aria-controls={showExport ? 'visualizer-code-export' : undefined}>
+          <Code2 size={16} /> {showExport ? 'Hide Export' : 'Export Code'}
+        </button>, headerActionsElement,
+      )}
       <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: 20, alignItems: 'start' }}>
 
         {/* Parameters panel */}
@@ -356,7 +378,7 @@ export default function Simulator() {
           {/* Stability indicator */}
           {isUnstable && (
             <div style={{ marginTop: 12, padding: '8px 10px', background: 'var(--warning-soft)', border: '1px solid color-mix(in srgb, var(--warning) 35%, transparent)', borderRadius: 'var(--radius-sm)', fontSize: 12, color: 'var(--warning)', lineHeight: 1.4 }}>
-              ρ = {rho.toFixed(2)} ≥ 1. No finite steady state under these assumptions — queue may grow without bound.
+              <MathFormula tex={`\\rho = ${rho.toFixed(2)} \\geq 1`} />. No finite steady state under these assumptions — queue may grow without bound.
             </div>
           )}
         </div>
@@ -443,7 +465,7 @@ export default function Simulator() {
                 { label: 'Peak queue length', value: String(uiState.stats.maxQueueLength), unit: '', theory: `Avg theory: ${theoreticalQueueLength}` },
               ].map(kpi => (
                 <div key={kpi.label} className="kpi-tile">
-                  <div className="kpi-label">{kpi.label}</div>
+                  <div className="kpi-label"><MathText>{kpi.label}</MathText></div>
                   <div className="kpi-value">{kpi.value}<span style={{ fontSize: 13, fontWeight: 400, marginLeft: 2 }}>{kpi.unit}</span></div>
                   {kpi.theory && <div className="kpi-unit">{kpi.theory}</div>}
                 </div>
@@ -473,11 +495,18 @@ export default function Simulator() {
         </div>
       </div>
 
+      <FormalModel model={exportModel} />
+
       {/* Code exports */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginTop: 8 }}>
-        <CodeExport nodes={syntheticNodes} edges={syntheticEdges} />
-        <SimmerCodeExport nodes={syntheticNodes} edges={syntheticEdges} />
-      </div>
+      {showExport && <div id="visualizer-code-export" ref={exportPanelRef} style={{ display: 'flex', flexDirection: 'column', gap: 20, marginTop: 8 }}>
+        <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>
+          Export the current arrival rate, service rate and server count. Scripts run for {DEFAULT_RUN_CONFIG.horizon} seconds
+          with {DEFAULT_RUN_CONFIG.warmup} seconds of warm-up, seed {DEFAULT_RUN_CONFIG.seed}, and {DEFAULT_RUN_CONFIG.replications} replication(s).
+          Playback speed does not affect the exported model; scripts generate a new random trace.
+        </p>
+        <CodeExport model={exportModel} config={DEFAULT_RUN_CONFIG} />
+        <SimmerCodeExport model={exportModel} config={DEFAULT_RUN_CONFIG} />
+      </div>}
     </div>
   );
 }

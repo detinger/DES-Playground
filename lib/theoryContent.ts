@@ -1,4 +1,5 @@
 // Static content for the Theory learning hub — lessons, example models, challenges.
+import { CASE_STUDIES } from './caseStudies';
 import { IT_EXAMPLES, IT_CHALLENGES } from './itLearningContent';
 
 // ── Lessons ───────────────────────────────────────────────────────────────────
@@ -45,10 +46,14 @@ export const LESSONS: Lesson[] = [
   },
   {
     level: 3,
-    title: 'Queues, Servers and Stability',
+    title: 'Kendall Notation, Queues and Stability',
     paragraphs: [
+      'Kendall notation summarises a queue as A/S/c: A is the interarrival-time distribution, S is the service-time distribution, and c is the number of parallel servers sharing the queue. M means memoryless (exponential times; Poisson arrivals), D means deterministic (constant times), and G means a general distribution. GI is often used to specify general independent interarrival times.',
+      'Read M/M/1 as exponential interarrival times, exponential service times, and one server. M/M/3 has three parallel servers, each with service rate μ. M/D/1 has exponential interarrival times and constant service times. M/G/1 allows a general service-time distribution. The letters describe distributions, not numerical rates.',
+      'The extended form A/S/c/K/N/Disc also specifies total system capacity K (waiting plus in service), source population N, and queue discipline Disc. When omitted, the usual assumptions are unlimited capacity, an infinite source population, and first-come, first-served (FCFS, also called FIFO). For example, M/M/2/5/∞/FCFS has two servers and room for only three waiting entities; an arrival finding all five places occupied is blocked. The M/M/c Visualizer uses unlimited capacity and FIFO; it does not model this finite-capacity example.',
+
       'A queue holds entities waiting for a server. When all c server slots are busy, arriving entities join the queue in FIFO order. When a slot frees up, the first entity in the queue begins service immediately. Queue length Lq counts only waiting entities; in-service entities are counted separately.',
-      'Server utilisation ρ = λ/(c·μ) measures the fraction of server capacity in use at steady state. When ρ ≥ 1 the system is unstable: the queue grows without bound. The relationship between ρ and queue length is highly non-linear — at ρ = 0.5 waiting is minimal, but at ρ = 0.9 average queue length is 10× higher than at ρ = 0.5.',
+      'Server utilisation ρ = λ/(c·μ) measures the fraction of server capacity in use at steady state. When ρ ≥ 1 the system is unstable: the queue grows without bound. The relationship between ρ and queue length is highly non-linear — at ρ = 0.5 waiting is minimal, but at ρ = 0.9 the M/M/1 average queue length is 16.2× its value at ρ = 0.5.',
       'Kendall\'s notation M/M/c describes a queue with Markovian (Poisson) arrivals, Markovian (exponential) service, and c parallel servers. M/M/1 is the simplest case. M/D/1 uses deterministic service and has exactly half the queue length of M/M/1 at the same ρ — a direct demonstration of variability\'s impact.',
     ],
     keyFact: 'For M/M/1: Lq = ρ²/(1−ρ). At ρ=0.9: Lq=8.1. At ρ=0.5: Lq=0.5. Near-saturation causes disproportionate queue growth.',
@@ -117,12 +122,27 @@ export const LESSONS: Lesson[] = [
       fix: 'One matching number is coincidence. Verification requires running many seeds and checking that means fall within each other\'s CIs, plus deterministic golden fixtures for edge cases.',
     },
   },
+  {
+    level: 8,
+    title: 'Formal Models — Activities, Queues and Tokens',
+    paragraphs: [
+      'The supplied discrete-event simulation lecture describes an activity-cycle model as a tuple of activities A, places Q, input mapping I, output mapping O, duration function τ and initial token counts μ₀. Entity tokens represent patients, jobs or products; resource tokens represent available workers or machines.',
+      'An activity starts when its required input tokens are available. It consumes those tokens, schedules completion after its sampled duration, and releases output tokens when it completes. For service, one waiting entity and one idle resource token are consumed; completion returns the resource token and sends the entity to the next queue. FIFO determines which waiting entity is selected.',
+      'Expand Formal model on any example, in the Model Explorer, or in the M/M/c Visualizer to inspect the instantiated activities, distributions, resource counts and state rules. Editing a distribution or capacity updates the specification. Factory and Inventory have dedicated state transitions because repairs, spare stock and replenishment cannot be represented by an open service chain alone.',
+      'A complete event-driven state also includes the ordered entity queues and the future-event calendar. Counts alone are not sufficient for general service distributions: scheduled completion times retain the information needed to advance the simulation.',
+    ],
+    keyFact: 'A service completion returns the resource token and moves the entity forward. It does not put that entity back into the same waiting queue unless the model explicitly contains that loop.',
+    misconception: { label: '"The flowchart alone specifies the entire model."', fix: 'Topology must be accompanied by timing distributions, capacities, initial conditions, queue discipline and event rules.' },
+    exampleId: 'clinic',
+  },
 ];
 
 // ── Example models ────────────────────────────────────────────────────────────
 
 export interface ExampleModel {
   id: string;
+  caseStudy?: 'factory' | 'inventory';
+  sourceFile?: string;
   badge: string;
   name: string;
   description: string;
@@ -143,7 +163,7 @@ export const EXAMPLES: ExampleModel[] = [
   {
     id: 'det-single',
     difficulty: 1,
-    badge: 'M/D/1',
+    badge: 'D/D/1',
     name: 'Deterministic single server',
     description: 'Constant interarrival and service times with one server. Arrivals at a fixed interval — no randomness, fully predictable event trace. Use this to verify event ordering by hand.',
     objectives: [
@@ -262,6 +282,7 @@ export const EXAMPLES: ExampleModel[] = [
     ],
     config: { horizon: 1000, warmup: 100, seed: 42, replications: 3 },
   },
+  ...CASE_STUDIES,
   ...IT_EXAMPLES,
 ];
 

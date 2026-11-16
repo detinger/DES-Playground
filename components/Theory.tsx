@@ -1,3 +1,7 @@
+import FormalModel from './FormalModel';
+import CaseStudyLab from './CaseStudyLab';
+import { compileModel } from '../lib/compiler';
+import { MathText, MathFormula } from './Math';
 import React, { useState, useEffect, useRef } from 'react';
 import { FlaskConical, Trophy, ChevronDown, ChevronRight, CheckCircle2, Circle, Lightbulb, ExternalLink } from 'lucide-react';
 import { Node, Edge } from '@xyflow/react';
@@ -83,7 +87,7 @@ function ExperimentSteps({ steps }: { steps?: string[] }) {
         Try the experiment
       </div>
       <ol style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {steps.map(step => <li key={step} style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>{step}</li>)}
+        {steps.map(step => <li key={step} style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}><MathText>{step}</MathText></li>)}
       </ol>
     </div>
   );
@@ -249,7 +253,7 @@ function DistributionViz() {
 
         <text x={W-8} y={99} fontSize={9} fill="var(--text-subtle)">t</text>
         <text x={30}  y={18} fontSize={9} fill="var(--text-subtle)">f(t)</text>
-        <text x={300} y={48} fontSize={8.5} fill="var(--primary)">f(t) = λe^(−λt)</text>
+        <text x={300} y={48} fontSize={8.5} fill="var(--primary)">Exponential density</text>
       </svg>
     </div>
   );
@@ -278,7 +282,7 @@ function StabilityViz() {
   const yAxis = 158;
   return (
     <div style={vizBox}>
-      <div style={vizTitle}>M/M/1 queue length — Lq = ρ²/(1−ρ) explodes as utilisation approaches 100%</div>
+      <div style={vizTitle}><MathText>{"M/M/1 queue length — Lq = ρ²/(1−ρ) explodes as utilisation approaches 100%"}</MathText></div>
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H }}>
         {/* Zone bands */}
         {zones.map(z => (
@@ -410,7 +414,7 @@ function EntityLifecycleViz() {
 function LittlesLawViz() {
   return (
     <div style={vizBox}>
-      <div style={vizTitle}>Little's Law — L = λW (holds for any stable system)</div>
+      <div style={vizTitle}><MathText>{"Little's Law — L = λW (holds for any stable system)"}</MathText></div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 2, minWidth: 230 }}>
           <div style={{ textAlign: 'center', flexShrink: 0 }}>
@@ -424,7 +428,7 @@ function LittlesLawViz() {
           }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>System</div>
             <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--accent)', marginTop: 3 }}>W = sojourn time</div>
-            <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--primary)', marginTop: 2, fontWeight: 650 }}>L = λ · W</div>
+            <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--primary)', marginTop: 2, fontWeight: 650 }}><MathFormula tex={String.raw`L=\lambda W`} /></div>
           </div>
           <span style={{ color: 'var(--text-subtle)', fontSize: 20, flexShrink: 0 }}>→</span>
           <div style={{ textAlign: 'center', flexShrink: 0 }}>
@@ -439,9 +443,9 @@ function LittlesLawViz() {
           fontFamily: 'var(--font-mono)', fontSize: 12, lineHeight: 1.75,
         }}>
           <div style={{ fontSize: 10, color: 'var(--text-subtle)', marginBottom: 2 }}>Example</div>
-          <div>λ = 0.18 / min</div>
-          <div>W = 8.5 min</div>
-          <div style={{ color: 'var(--primary)', fontWeight: 650 }}>L = 1.53 entities</div>
+          <div><MathFormula tex={String.raw`\lambda=0.18/\mathrm{min}`} /></div>
+          <div><MathFormula tex={String.raw`W=8.5\,\mathrm{min}`} /></div>
+          <div style={{ color: 'var(--primary)', fontWeight: 650 }}><MathFormula tex={String.raw`L=1.53`} /> entities</div>
         </div>
       </div>
     </div>
@@ -528,6 +532,20 @@ function CodeEquivalenceViz() {
   );
 }
 
+const LESSON_EQUATIONS: Record<number, string[]> = {
+  1: [String.raw`t_{k+1}=\min\{t_e:e\in\mathcal E_k\},\qquad X_{k+1}=\delta(X_k,e_{k+1})`],
+  2: [String.raw`\lambda=\frac1{\mathbb E[A]},\quad\mu=\frac1{\mathbb E[S]},\quad f_A(t)=\lambda e^{-\lambda t},\ t\ge0`],
+  3: [String.raw`A/S/c/K/N/\mathrm{Disc}`, String.raw`\rho=\frac{\lambda}{c\mu}<1,\qquad L_q^{M/M/1}=\frac{\rho^2}{1-\rho},\qquad L_q^{M/D/1}=\frac{\rho^2}{2(1-\rho)}`],
+  4: [String.raw`e_{\rm next}=\operatorname*{arg\,min}_{e\in\mathcal E}(t_e,p_e,s_e)`],
+  5: [String.raw`L=\lambda W,\quad L_q=\lambda W_q,\quad\widehat L_q=\frac{1}{T-w}\int_w^T Q(t)\,dt`, String.raw`\widehat W_q=\frac{1}{|D_w|}\sum_{i\in D_w}W_{q,i}`],
+  6: [String.raw`\bar Y=\frac1n\sum_{i=1}^nY_i,\quad s^2=\frac{1}{n-1}\sum_{i=1}^n(Y_i-\bar Y)^2,\quad \mathrm{CI}_{95\%}=\bar Y\pm t_{0.975,n-1}\frac{s}{\sqrt n}`],
+  7: [String.raw`\mathbb E[\widehat Y_{\rm browser}]\approx\mathbb E[\widehat Y_{\rm Python}]\approx\mathbb E[\widehat Y_{\rm R}]`],
+  8: [String.raw`M_{\rm ACD}=\langle A,Q,I,O,\tau,\mu_0\rangle`, String.raw`I(a_{\rm service})=\{q_{\rm wait},r_{\rm idle}\},\quad O(a_{\rm service})=\{q_{\rm next},r_{\rm idle}\}`],
+};
+function LessonEquations({ level }: { level: number }) {
+  return <div>{(LESSON_EQUATIONS[level] ?? []).map(tex => <MathFormula key={tex} tex={tex} display />)}</div>;
+}
+
 function LessonViz({ level }: { level: number }) {
   switch (level) {
     case 1: return <EventTimelineViz />;
@@ -548,6 +566,10 @@ function LessonsTab({ onGoToExample }: { onGoToExample: (id: string) => void }) 
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+        <a className="reference-link" href="/references/queueing-theory.pdf" target="_blank" rel="noreferrer">Queueing Theory · lecture PDF</a>
+        <a className="reference-link" href="/references/discrete-event-simulation.pdf" target="_blank" rel="noreferrer">Discrete-event simulation · lecture PDF</a>
+      </div>
       {LESSONS.map(lesson => {
         const isOpen = expanded === lesson.level;
         return (
@@ -584,11 +606,12 @@ function LessonsTab({ onGoToExample }: { onGoToExample: (id: string) => void }) 
               <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 16 }}>
                 {lesson.paragraphs.map((p, i) => (
                   <p key={i} style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.65, maxWidth: '80ch' }}>
-                    {p}
+                    <MathText>{p}</MathText>
                   </p>
                 ))}
 
                 <LessonViz level={lesson.level} />
+                <LessonEquations level={lesson.level} />
 
                 {/* Key fact */}
                 <div style={{
@@ -598,7 +621,7 @@ function LessonsTab({ onGoToExample }: { onGoToExample: (id: string) => void }) 
                 }}>
                   <Lightbulb size={15} style={{ color: 'var(--primary)', flexShrink: 0, marginTop: 2 }} />
                   <span style={{ fontSize: 13, color: 'var(--primary-strong)', lineHeight: 1.5 }}>
-                    {lesson.keyFact}
+                    <MathText>{lesson.keyFact}</MathText>
                   </span>
                 </div>
 
@@ -612,10 +635,10 @@ function LessonsTab({ onGoToExample }: { onGoToExample: (id: string) => void }) 
                     Common misconception
                   </div>
                   <div style={{ fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                    {lesson.misconception.label}
+                    <MathText>{lesson.misconception.label}</MathText>
                   </div>
                   <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                    <strong style={{ color: 'var(--success)' }}>Correction: </strong>{lesson.misconception.fix}
+                    <strong style={{ color: 'var(--success)' }}>Correction: </strong><MathText>{lesson.misconception.fix}</MathText>
                   </div>
                 </div>
 
@@ -652,6 +675,7 @@ function LessonsTab({ onGoToExample }: { onGoToExample: (id: string) => void }) 
 function ExamplesTab({ onLoad, highlightedId }: { onLoad: (ex: ExampleModel) => void; highlightedId: string | null }) {
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [difficulty, setDifficulty] = useState<DifficultyFilterValue>('all');
+  const [openLab, setOpenLab] = useState<string | null>(null);
   const examples = EXAMPLES.filter(ex => difficulty === 'all' || String(ex.difficulty ?? 1) === difficulty);
 
   useEffect(() => { if (highlightedId) setDifficulty('all'); }, [highlightedId]);
@@ -665,7 +689,7 @@ function ExamplesTab({ onLoad, highlightedId }: { onLoad: (ex: ExampleModel) => 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-        Explore core queueing models and eight fictional IT case studies, from beginner pipelines to hard capacity decisions. All durations are in minutes. Click <strong>Load in Editor</strong>, then <strong>Run</strong>. Use Scenario Comparison for experiments; the M/M/c Theory panel applies only to compatible single-stage models.
+        Explore queueing models, Clinic, Factory, Inventory and IT case studies. Clinic and editor models use minutes; Factory uses working hours and Inventory uses days. Click <strong>Load in Editor</strong>, then <strong>Run</strong>. Use Scenario Comparison for experiments; the M/M/c Theory panel applies only to compatible single-stage models.
       </p>
       <DifficultyFilter value={difficulty} onChange={setDifficulty} count={examples.length} />
       {examples.map(ex => {
@@ -688,16 +712,16 @@ function ExamplesTab({ onLoad, highlightedId }: { onLoad: (ex: ExampleModel) => 
                 <span style={{ fontWeight: 650, fontSize: 14, color: 'var(--text)' }}>{ex.name}</span>
               </div>
               <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5, maxWidth: '72ch' }}>
-                {ex.description}
+                <MathText>{ex.description}</MathText>
               </p>
             </div>
             <button
-              onClick={() => onLoad(ex)}
+              onClick={() => ex.caseStudy ? setOpenLab(openLab === ex.id ? null : ex.id) : onLoad(ex)}
               className="ui-btn ui-btn--primary"
               style={{ flexShrink: 0 }}
-              title="Load this model into the Model Explorer"
+              title={ex.caseStudy ? "Open the interactive case-study lab" : "Load this model into the Model Explorer"}
             >
-              <ExternalLink size={13} /> Load in Editor
+              <ExternalLink size={13} /> {ex.caseStudy ? (openLab === ex.id ? 'Close lab' : 'Open lab') : 'Load in Editor'}
             </button>
           </div>
 
@@ -709,7 +733,7 @@ function ExamplesTab({ onLoad, highlightedId }: { onLoad: (ex: ExampleModel) => 
               </div>
               <ul style={{ margin: 0, padding: '0 0 0 16px', display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {ex.objectives.map((o, i) => (
-                  <li key={i} style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>{o}</li>
+                  <li key={i} style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}><MathText>{o}</MathText></li>
                 ))}
               </ul>
             </div>
@@ -725,16 +749,21 @@ function ExamplesTab({ onLoad, highlightedId }: { onLoad: (ex: ExampleModel) => 
                   borderRadius: 'var(--radius-sm)', padding: '8px 12px',
                 }}>
                   <div style={{ fontSize: 11, fontWeight: 650, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>{label}</div>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', lineHeight: 1.5 }}>{value}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', lineHeight: 1.5 }}><MathText>{value}</MathText></div>
                 </div>
               ))}
             </div>
             {ex.assumptions && (
               <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                <strong>Model assumptions: </strong>{ex.assumptions}
+                <strong>Model assumptions: </strong><MathText>{ex.assumptions}</MathText>
               </p>
             )}
             <ExperimentSteps steps={ex.experiment} />
+            {ex.sourceFile && <a href={`/references/${ex.sourceFile}`} target="_blank" rel="noreferrer" className="reference-link">Source notebook: {ex.sourceFile}</a>}
+            {ex.caseStudy
+              ? openLab === ex.id && <CaseStudyLab kind={ex.caseStudy} />
+              : <FormalModel model={compileModel(ex.nodes, ex.edges, { name: ex.name })} />}
+
           </div>
         </div>
         );
@@ -852,7 +881,7 @@ function ChallengesTab({
             <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
               {/* Task */}
               <p style={{ margin: 0, fontSize: 14, color: 'var(--text)', lineHeight: 1.6, maxWidth: '72ch' }}>
-                {ch.task}
+                <MathText>{ch.task}</MathText>
               </p>
 
               {/* Options */}
@@ -898,7 +927,7 @@ function ChallengesTab({
                           <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--bg-elevated)' }} />
                         )}
                       </span>
-                      {opt.label}
+                      <MathText>{opt.label}</MathText>
                     </button>
                   );
                 })}
@@ -914,7 +943,7 @@ function ChallengesTab({
                       borderRadius: 'var(--radius-sm)', fontSize: 13, color: 'var(--text-muted)',
                     }}>
                       <Lightbulb size={14} style={{ color: 'var(--warning)', flexShrink: 0, marginTop: 1 }} />
-                      <span>Hint {i + 1}: {hint}</span>
+                      <span>Hint {i + 1}: <MathText>{hint}</MathText></span>
                     </div>
                   ))}
                   {hintsN < ch.hints.length && (
@@ -963,7 +992,7 @@ function ChallengesTab({
                     background: 'var(--bg-sunken)', border: '1px solid var(--border)',
                     borderRadius: 'var(--radius-sm)', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.65,
                   }}>
-                    <strong style={{ color: 'var(--text)' }}>Explanation: </strong>{ch.explanation}
+                    <strong style={{ color: 'var(--text)' }}>Explanation: </strong><MathText>{ch.explanation}</MathText>
                   </div>
                   {!isCorrect && (
                     <button

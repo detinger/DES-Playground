@@ -1,3 +1,5 @@
+import FormalModel from './FormalModel';
+import { MathText } from './Math';
 import { createPortal } from 'react-dom';
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
@@ -57,10 +59,31 @@ interface EditorProps {
 
 export default function Editor({ headerActionsElement, nodes, setNodes, edges, setEdges, exampleConfig }: EditorProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
+  const [canvasHeight, setCanvasHeight] = useState(600);
+  const canvasResize = useRef<{ pointerId: number; startY: number; startHeight: number } | null>(null);
+  const resizeCanvas = (height: number) => setCanvasHeight(Math.max(180, Math.min(1600, height)));
+  const finishCanvasResize = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (canvasResize.current?.pointerId !== event.pointerId) return;
+    canvasResize.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
   const [selectedNode, setSelectedNode] = useState<Node<NodeData> | null>(null);
   // Validation state
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
+  // Keep validation through playback and layout changes, but clear it after model edits.
+  const validationKey = JSON.stringify({
+    nodes: nodes.map(({ id, data }) => ({ id, type: data.type, label: data.label,
+      distribution: data.distribution, capacity: data.capacity })),
+    edges: edges.map(({ source, target }) => ({ source, target })),
+  });
+  useEffect(() => { setValidationResult(null); }, [validationKey]);
+  const formalModel = useMemo(() => compileModel(nodes, edges), [validationKey]);
+  const isValid = validationResult !== null && validationResult.issues.length === 0;
+
 
   const handleValidate = useCallback(() => {
     const model = compileModel(nodes, edges);
@@ -98,8 +121,8 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
     setRunOutput(output);
     setRunResult(output.primary);
     setLastCompiledModel(model);
-    setPlaybackIndex(output.primary.trace.length - 1);
-    setIsPlaying(false);
+    setPlaybackIndex(0);
+    setIsPlaying(output.primary.trace.length > 1);
   }, [nodes, edges, runConfig]);
 
   const handleReset = useCallback(() => {
@@ -439,7 +462,9 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
 
         {/* Action buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <button onClick={handleValidate} className="ui-btn" title="Validate model">
+          <button onClick={handleValidate} className={`ui-btn${isValid ? ' ui-btn--success' : ''}`}
+            title={isValid ? 'Model is valid — no issues found' : 'Validate model'}
+            aria-label={isValid ? 'Validate model: valid, no issues found' : 'Validate model'}>
             <ShieldCheck size={14} /> Validate
           </button>
           <button
@@ -450,7 +475,7 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
               ? { opacity: 0.4, cursor: 'not-allowed' }
               : { background: 'var(--primary)', borderColor: 'var(--primary)', color: 'var(--text-on-primary)' }
             }
-            title={validationResult?.hasErrors ? 'Fix errors before running' : 'Compute simulation'}
+            title={validationResult?.hasErrors ? 'Fix errors before running' : 'Compute simulation and play from the beginning'}
           >
             <Play size={14} /> Run
           </button>
@@ -475,7 +500,11 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
               <ChevronLeft size={14} />
             </button>
             <button
-              onClick={() => setIsPlaying(p => !p)}
+              onClick={() => {
+                if (!isPlaying && playbackIndex >= runResult.trace.length - 1) setPlaybackIndex(0);
+                setIsPlaying(p => !p && runResult.trace.length > 1);
+              }}
+              disabled={runResult.trace.length < 2}
               className="ui-btn"
               style={isPlaying
                 ? { background: 'var(--error-soft)', borderColor: 'var(--error)', color: 'var(--error)' }
@@ -605,7 +634,7 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
           </div>
         </div>
 
-        <div className="editor-canvas-area">
+        <div className="editor-canvas-area" style={{ height: canvasHeight }}>
         {/* React Flow canvas */}
         <div id="model-canvas" style={{ flex: 1, position: 'relative', minWidth: 0 }} ref={reactFlowWrapper}>
           <ReactFlow
@@ -779,8 +808,47 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
             </div>
           </div>
         )}
+          <div
+            className="editor-canvas-resize-handle"
+            role="separator"
+            tabIndex={0}
+            aria-label="Resize model canvas"
+            aria-controls="model-canvas"
+            aria-orientation="horizontal"
+            aria-valuemin={180}
+            aria-valuemax={1600}
+            aria-valuenow={canvasHeight}
+            aria-valuetext={`${canvasHeight} pixels high`}
+            title="Drag to resize canvas, or use Up and Down arrow keys"
+            onPointerDown={event => {
+              if (event.button !== 0) return;
+              event.preventDefault();
+              event.stopPropagation();
+              event.currentTarget.focus();
+              event.currentTarget.setPointerCapture(event.pointerId);
+              canvasResize.current = { pointerId: event.pointerId, startY: event.clientY, startHeight: canvasHeight };
+            }}
+            onPointerMove={event => {
+              const drag = canvasResize.current;
+              if (!drag || drag.pointerId !== event.pointerId) return;
+              resizeCanvas(drag.startHeight + event.clientY - drag.startY);
+            }}
+            onPointerUp={finishCanvasResize}
+            onPointerCancel={finishCanvasResize}
+            onLostPointerCapture={() => { canvasResize.current = null; }}
+            onKeyDown={event => {
+              if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
+              event.preventDefault();
+              event.stopPropagation();
+              if (event.key === 'Home') resizeCanvas(180);
+              else if (event.key === 'End') resizeCanvas(1600);
+              else resizeCanvas(canvasHeight + (event.key === 'ArrowDown' ? 20 : -20));
+            }}
+          />
         </div>
       </div>
+
+      <FormalModel model={formalModel} />
 
       {/* Server state visualizer (playback-driven) */}
       <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '18px 20px', boxShadow: 'var(--shadow-sm)' }}>
@@ -892,7 +960,7 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
               { label: 'Total arrivals',         value: m ? String(m.totalArrivals) : '—',    unit: 'entities' },
             ].map(kpi => (
               <div key={kpi.label} className="kpi-tile">
-                <div className="kpi-label">{kpi.label}</div>
+                <div className="kpi-label"><MathText>{kpi.label}</MathText></div>
                 <div className="kpi-value">{kpi.value}</div>
                 <div className="kpi-unit">{kpi.unit}</div>
               </div>

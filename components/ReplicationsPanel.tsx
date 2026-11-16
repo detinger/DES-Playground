@@ -1,3 +1,4 @@
+import { MathText, MathFormula } from './Math';
 import React, { useState } from 'react';
 import { RunOutput, CIResult } from '../lib/engine';
 import { ChevronDown, ChevronRight } from 'lucide-react';
@@ -72,6 +73,9 @@ export default function ReplicationsPanel({ output }: ReplicationsPanelProps) {
         </span>
       </div>
 
+      <div style={{ padding: '8px 14px', fontSize: 13 }}>
+        <MathFormula tex={String.raw`\mathrm{CI}_{95\%}=\bar Y\pm t_{0.975,n-1}\frac{s}{\sqrt n},\quad n>1`} />
+      </div>
       {/* CI table */}
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -93,7 +97,7 @@ export default function ReplicationsPanel({ output }: ReplicationsPanelProps) {
               return (
                 <tr key={key}>
                   <td style={{ ...tdStyle, fontFamily: 'var(--font-sans)', color: 'var(--text-muted)', fontWeight: 500 }}>
-                    {label} {unit && <span style={{ fontSize: 10, color: 'var(--text-subtle)' }}>{unit}</span>}
+                    <MathText>{label}</MathText> {unit && <span style={{ fontSize: 10, color: 'var(--text-subtle)' }}>{unit}</span>}
                   </td>
                   <td style={{ ...tdStyle, textAlign: 'right', color: 'var(--primary)', fontWeight: 650 }}>{mean}</td>
                   <td style={{ ...tdStyle, textAlign: 'right', color: 'var(--text-muted)', fontSize: 12 }}>{ciStr}</td>
@@ -131,7 +135,7 @@ export default function ReplicationsPanel({ output }: ReplicationsPanelProps) {
                   <th style={{ ...thStyle, fontSize: 10 }}>Seed</th>
                   {KPIS.map(({ key, label, unit }) => (
                     <th key={key} style={{ ...thStyle, fontSize: 10, textAlign: 'right' }}>
-                      {label}{unit ? ` (${unit})` : ''}
+                      <MathText>{label}</MathText>{unit ? ` (${unit})` : ''}
                     </th>
                   ))}
                 </tr>

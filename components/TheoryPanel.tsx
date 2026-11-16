@@ -1,3 +1,4 @@
+import { MathFormula, MathText } from './Math';
 import React from 'react';
 import { DesModel } from '../lib/model';
 import { RunMetrics } from '../lib/engine';
@@ -32,7 +33,7 @@ export default function TheoryPanel({ model, simMean, horizon, warmup }: TheoryP
 
   if (!params) {
     return (
-      <div style={{
+      <details style={{
         background: 'var(--bg-elevated)',
         border: '1px solid var(--border)',
         borderRadius: 'var(--radius)',
@@ -41,9 +42,16 @@ export default function TheoryPanel({ model, simMean, horizon, warmup }: TheoryP
         fontSize: 13,
         color: 'var(--text-subtle)',
       }}>
-        <span style={{ fontWeight: 650, color: 'var(--text)', marginRight: 8 }}>M/M/c Reference</span>
-        Not applicable — requires a single Source (exponential arrivals) and Server (exponential service).
-      </div>
+        <summary style={{ cursor: 'pointer', color: 'var(--text)', fontWeight: 650 }}>
+          M/M/c Reference <span style={{ fontWeight: 400, color: 'var(--text-subtle)' }}>— unavailable for this model</span>
+        </summary>
+        <p style={{ margin: '10px 0 0', lineHeight: 1.6 }}>
+          This reference compares simulated waiting times, queue length and utilisation with theoretical values.
+          It requires one Source with exponential interarrival times feeding one Server with exponential service
+          times and c parallel service slots, followed by a Sink. Other distributions or multiple processing
+          stages do not fit this reference. You can still simulate and analyse those models.
+        </p>
+      </details>
     );
   }
 
@@ -141,7 +149,7 @@ export default function TheoryPanel({ model, simMean, horizon, warmup }: TheoryP
           {modelLabel} Reference
         </span>
         <span style={{ fontSize: 12, color: 'var(--text-subtle)', fontFamily: 'var(--font-mono)' }}>
-          {rateLabel}
+          <MathText>{rateLabel}</MathText>
         </span>
         <span style={{
           marginLeft: 'auto', fontSize: 11, fontWeight: 650, padding: '2px 8px', borderRadius: 4,
@@ -160,10 +168,14 @@ export default function TheoryPanel({ model, simMean, horizon, warmup }: TheoryP
           borderBottom: '1px solid var(--warning)',
           fontSize: 12, color: 'var(--warning)',
         }}>
-          ρ ≥ 1 — no finite steady-state under M/M/c assumptions. Theory formulas return ∞. Simulation results for a finite horizon are still valid but reflect a transient overloaded system, not steady-state behavior.
+          <MathFormula tex={String.raw`\rho\geq1`} /> — no finite steady-state under M/M/c assumptions. Theory formulas return ∞. Simulation results for a finite horizon are still valid but reflect a transient overloaded system, not steady-state behavior.
         </div>
       )}
 
+      <div style={{ padding: '10px 14px', fontSize: 13 }}>
+        <MathFormula display tex={String.raw`\rho=\frac{\lambda}{c\mu},\quad a=\frac{\lambda}{\mu},\quad P_0=\left[\sum_{k=0}^{c-1}\frac{a^k}{k!}+\frac{a^c}{c!(1-\rho)}\right]^{-1}`} />
+        <MathFormula display tex={String.raw`C=\frac{a^cP_0}{c!(1-\rho)},\quad W_q=\frac{C}{c\mu-\lambda},\quad W=W_q+\frac1\mu,\quad L_q=\lambda W_q,\quad L=\lambda W\quad(\rho<1)`} />
+      </div>
       {/* Comparison table */}
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -185,8 +197,8 @@ export default function TheoryPanel({ model, simMean, horizon, warmup }: TheoryP
               return (
                 <tr key={label}>
                   <td style={{ ...tdStyle, fontFamily: 'var(--font-sans)' }}>
-                    <div style={{ fontWeight: 500, color: 'var(--text)' }}>{label}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 2 }}>{description}</div>
+                    <div style={{ fontWeight: 500, color: 'var(--text)' }}><MathText>{label}</MathText></div>
+                    <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 2 }}><MathText>{description}</MathText></div>
                   </td>
                   <td style={{ ...tdStyle, textAlign: 'right', color: 'var(--accent)' }}>{tStr}</td>
                   <td style={{ ...tdStyle, textAlign: 'right', color: 'var(--text)' }}>{sStr}</td>
@@ -207,7 +219,7 @@ export default function TheoryPanel({ model, simMean, horizon, warmup }: TheoryP
       }}>
         {modelLabel} steady-state theory assumes Poisson arrivals, exponential service, infinite buffer, and ρ &lt; 1.
         Simulation: horizon {horizon} min, warm-up {warmup} min, observation window {obsHorizon} min.
-        Deviation = (sim − theory) / theory. Expect some variance for short runs.
+        <MathFormula tex={String.raw`\mathrm{Deviation}=\frac{\mathrm{sim}-\mathrm{theory}}{\mathrm{theory}}\times100\%`} />. Expect some variance for short runs.
       </div>
     </div>
   );

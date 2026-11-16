@@ -121,3 +121,46 @@ All notebooks use the same seed convention (`base + i×1000`) and t-distribution
 ## License
 
 For educational use.
+
+### Supplied teaching cases and mathematical models
+
+Examples now includes **Clinic**, **Factory**, and **Inventory**, adapted from the
+notebooks supplied in `TEMP`. Original notebooks and the two lecture PDFs are
+available through source links in Examples and Lessons (`public/references`).
+
+- **Clinic** loads into Model Explorer: normal interarrivals (mean 5, SD 0.5
+  minutes), nurse/doctor/administration service means 15/20/5 minutes (SD 1), and
+  baseline capacities 2/3/2. Experiments describe 3/3/2, 3/4/2 and 4/5/2 staffing.
+  Browser normal samples are conditioned to be nonnegative. The existing engine
+  closes arrivals at the horizon and drains patients, unlike the source notebook's
+  hard stop; the example explains this difference.
+- **Factory** opens a dedicated seeded lab for 50 machine positions, uniform
+  failures and repairs, FIFO repair/replacement queues, spare stock and operating
+  costs. Its clock counts working hours. Costs include downtime still outstanding
+  at the horizon; staff and spare costs use started eight-hour days.
+- **Inventory** opens a dedicated seeded lab with discrete demand, lost sales,
+  a guarded `(s,S)` policy, one outstanding order and a two-day lead time. Holding
+  cost integrates actual stock over every event interval and through the horizon,
+  correcting the notebook's accounting across deliveries. Initial stock is free,
+  matching the notebook; the displayed balance is not full lifecycle profit.
+
+Factory and Inventory are stateful labs, not approximations loaded into the
+open queue-network editor. Each supports editable parameters, same-seed reruns,
+charts, event logs and a saved baseline. Their source notebooks remain available.
+
+**Formal model** expands an activity-cycle specification for every editor example,
+the current editable graph, the M/M/c Visualizer and both stateful labs. It includes
+activities, input/output places, durations, initial tokens, state rules and outputs.
+Lesson 8 explains the supplied lecture's `M = <A,Q,I,O,τ,μ₀>` notation. For inventory,
+counted/guarded transitions extend the basic token model. These specifications are
+generated from current parameters, so changing the model updates its notation.
+
+Mathematics uses locally bundled MathJax SVG output, loaded on demand, with cached
+rendering and accessible formula labels. New authored prose can use `\(...\)` and
+`\[...\]` delimiters with `MathText`, or use `MathFormula` for explicit TeX. Existing
+queueing prose is handled by `mathProse`; diagram axes and numeric chart ticks stay
+compact. Code exports retain executable language syntax.
+
+Run `npm test` for case-study conservation, exact cost integrals, seeded
+reproducibility, invalid-parameter checks, clinic validation, MathJax formula
+rendering, and React learning-view smoke tests.
