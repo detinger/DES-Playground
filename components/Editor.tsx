@@ -13,7 +13,6 @@ import {
   Connection,
   Edge,
   Node,
-  Panel,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { SourceNode, ServerNode, SinkNode } from './nodes/CustomNodes';
@@ -612,9 +611,20 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
           <div className="editor-component-hint">
             Drag nodes onto the canvas. Connect by dragging handles.
           </div>
+              <button
+                type="button"
+                className="ui-btn ui-btn--sm"
+                onClick={() => setIsCanvasCompact(compact => !compact)}
+                title={isCanvasCompact ? 'Expand canvas height' : 'Shrink canvas height'}
+                aria-controls="model-canvas"
+                aria-expanded={!isCanvasCompact}
+              >
+                {isCanvasCompact ? <Maximize2 size={14} /> : <Minimize2 size={14} />}
+                {isCanvasCompact ? 'Expand canvas' : 'Shrink canvas'}
+              </button>
         </div>
 
-        <div style={{ display: 'flex', height: isCanvasCompact ? 320 : 600, minWidth: 0 }}>
+        <div className="editor-canvas-area" style={{ height: isCanvasCompact ? 240 : 600 }}>
         {/* React Flow canvas */}
         <div id="model-canvas" style={{ flex: 1, position: 'relative', minWidth: 0 }} ref={reactFlowWrapper}>
           <ReactFlow
@@ -634,19 +644,7 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
           >
             <Background color="var(--border)" gap={20} size={1} />
             <Controls />
-            <Panel position="top-right">
-              <button
-                type="button"
-                className="ui-btn ui-btn--sm"
-                onClick={() => setIsCanvasCompact(compact => !compact)}
-                title={isCanvasCompact ? 'Expand canvas height' : 'Shrink canvas height'}
-                aria-controls="model-canvas"
-                aria-expanded={!isCanvasCompact}
-              >
-                {isCanvasCompact ? <Maximize2 size={14} /> : <Minimize2 size={14} />}
-                {isCanvasCompact ? 'Expand canvas' : 'Shrink canvas'}
-              </button>
-            </Panel>
+
           </ReactFlow>
         </div>
 
