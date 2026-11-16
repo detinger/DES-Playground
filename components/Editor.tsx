@@ -91,18 +91,6 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
     if (showExport) exportPanelRef.current?.scrollIntoView({ block: 'start' });
   }, [showExport]);
 
-  const HELP_DESK: { nodes: any[]; edges: any[] } = {
-    nodes: [
-      { id: 'hd1', type: 'source', position: { x: 80, y: 240 }, data: { label: 'Customer Arrivals', type: 'source', distribution: { type: 'exponential', mean: 3 } } },
-      { id: 'hd2', type: 'server', position: { x: 340, y: 240 }, data: { label: 'Help Desk (1 agent)', type: 'server', capacity: 1, distribution: { type: 'exponential', mean: 4 } } },
-      { id: 'hd3', type: 'sink',   position: { x: 600, y: 240 }, data: { label: 'Issue Resolved',    type: 'sink'   } },
-    ],
-    edges: [
-      { id: 'hd-e1', source: 'hd1', target: 'hd2', animated: true, style: { stroke: '#6366f1', strokeWidth: 2 } },
-      { id: 'hd-e2', source: 'hd2', target: 'hd3', animated: true, style: { stroke: '#6366f1', strokeWidth: 2 } },
-    ],
-  };
-
   const handleRun = useCallback(() => {
     const model = compileModel(nodes, edges);
     const vr = validateModel(model);
@@ -152,17 +140,6 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
     setPlaybackIndex(s.output.primary.trace.length - 1);
     setIsPlaying(false);
   }, [setNodes, setEdges]);
-
-  const loadHelpDesk = useCallback(() => {
-    setNodes(HELP_DESK.nodes);
-    setEdges(HELP_DESK.edges);
-    setRunResult(null);
-    setRunOutput(null);
-    setLastCompiledModel(null);
-    setValidationResult(null);
-    setPlaybackIndex(0);
-    setSelectedNode(null);
-  }, []);
 
   // Playback animation
   useEffect(() => {
@@ -629,28 +606,6 @@ export default function Editor({ headerActionsElement, nodes, setNodes, edges, s
               <span>{item.label}</span>
             </div>
           ))}
-
-          <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-subtle)', marginBottom: 6 }}>
-              Examples
-            </div>
-            <button
-              onClick={loadHelpDesk}
-              style={{
-                width: '100%', textAlign: 'left', padding: '6px 10px',
-                borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)',
-                background: 'var(--bg-subtle)', cursor: 'pointer',
-                fontSize: 12, color: 'var(--text)',
-                transition: 'background 120ms',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'var(--bg-subtle)')}
-              title="Help desk, 1 agent (ρ > 1 — overloaded). Increase capacity to 2 as an improvement."
-            >
-              <div style={{ fontWeight: 500 }}>Help Desk</div>
-              <div style={{ fontSize: 10, color: 'var(--text-subtle)', marginTop: 1 }}>λ=1/3, μ=1/4, c=1</div>
-            </button>
-          </div>
 
           <div style={{ marginTop: 'auto', fontSize: 11, color: 'var(--text-subtle)', padding: '8px 4px', lineHeight: 1.4 }}>
             Drag nodes onto the canvas. Connect by dragging handles.
