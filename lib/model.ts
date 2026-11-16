@@ -1,5 +1,4 @@
 // Canonical DES model types — independent of React Flow representation
-// PLAN.md §3.4
 
 export const SCHEMA_VERSION = 1 as const;
 

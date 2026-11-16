@@ -1,5 +1,4 @@
-// DES event-calendar engine — PLAN.md §2.4 / §3.5
-// Runs a correct discrete-event simulation from a canonical DesModel.
+// DES event-calendar engine — runs a correct discrete-event simulation from a canonical DesModel.
 // NO wall-clock timing. All advancement is by virtual simulation time.
 
 import { DesModel, DesNode, Distribution } from './model';

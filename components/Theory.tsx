@@ -63,149 +63,308 @@ const vizTitle: React.CSSProperties = {
 };
 
 function EventTimelineViz() {
-  const W = 500, tMax = 18;
-  const tx = (t: number) => 44 + (t / tMax) * 418;
+  const W = 560, H = 160, tMax = 20;
+  const tx = (t: number) => 48 + (t / tMax) * 480;
+  // Events: arrival, service-start, 2nd arrival, service-end, departure
   const events = [
-    { t: 2,  label: 'Arrival',    color: 'var(--chart-1)', above: true },
-    { t: 2,  label: 'Svc Start',  color: 'var(--success)', above: false },
-    { t: 7,  label: 'Arrival',    color: 'var(--chart-1)', above: true },
-    { t: 9,  label: 'Svc End',    color: 'var(--warning)', above: false },
-    { t: 14, label: 'Departure',  color: 'var(--error)',   above: true },
+    { t: 2,   label: 'Arrival',    sub: 'e₁ joins queue', color: 'var(--chart-1)' },
+    { t: 2.1, label: 'Svc Start',  sub: 'e₁ served',      color: 'var(--success)' },
+    { t: 8,   label: 'Arrival',    sub: 'e₂ joins queue', color: 'var(--chart-1)' },
+    { t: 10,  label: 'Svc End',    sub: 'e₁ leaves svc',  color: 'var(--warning)' },
+    { t: 16,  label: 'Departure',  sub: 'e₂ exits',       color: 'var(--error)'   },
   ];
+  // Server state bars: busy t=2→10, busy t=10→16, idle t=0→2
+  const idleSegs = [[0,2],[10,10]];
+  const busySegs = [[2,10],[10,16]];
+  const clockJumps = events.map(e => e.t);
+
   return (
     <div style={vizBox}>
-      <div style={vizTitle}>Simulation clock — jumps between events, frozen between them</div>
-      <svg viewBox={`0 0 ${W} 105`} style={{ width: '100%', height: 105 }}>
-        <line x1={42} y1={58} x2={W - 10} y2={58} stroke="var(--border)" strokeWidth={2} />
-        <polygon points={`${W-10},54 ${W},58 ${W-10},62`} fill="var(--border)" />
-        <text x={W - 6} y={62} fontSize={10} fill="var(--text-subtle)">t</text>
-        {/* gap annotation */}
-        <text x={tx(4.8)} y={53} fontSize={8.5} fill="var(--text-subtle)" textAnchor="middle">← idle gap →</text>
+      <div style={vizTitle}>DES clock — jumps instantly from event to event; time is frozen between events</div>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H }}>
+        {/* axes */}
+        <line x1={48} y1={H-20} x2={W-10} y2={H-20} stroke="var(--border)" strokeWidth={1.5} />
+        <text x={W-8} y={H-16} fontSize={9} fill="var(--text-subtle)">time</text>
+
+        {/* Server busy/idle row */}
+        <text x={44} y={30} fontSize={8} fill="var(--text-subtle)" textAnchor="end">server</text>
+        {/* idle segments */}
+        <rect x={tx(0)} y={22} width={tx(2)-tx(0)} height={12} fill="var(--bg-elevated)" stroke="var(--border)" strokeWidth={0.8} rx={2} />
+        <text x={(tx(0)+tx(2))/2} y={31} fontSize={7.5} fill="var(--text-subtle)" textAnchor="middle">idle</text>
+        {/* busy segments */}
+        {busySegs.map(([a,b],i) => (
+          <g key={i}>
+            <rect x={tx(a)} y={22} width={tx(b)-tx(a)} height={12} fill="var(--success)" opacity={0.25} stroke="var(--success)" strokeWidth={0.8} rx={2} />
+            <text x={(tx(a)+tx(b))/2} y={31} fontSize={7.5} fill="var(--success)" textAnchor="middle">busy</text>
+          </g>
+        ))}
+
+        {/* Queue depth row */}
+        <text x={44} y={56} fontSize={8} fill="var(--text-subtle)" textAnchor="end">queue</text>
+        {/* 0 waiting 0→2 */}
+        <rect x={tx(0)} y={48} width={tx(2)-tx(0)} height={12} fill="var(--bg-elevated)" stroke="var(--border)" strokeWidth={0.8} rx={2} />
+        <text x={(tx(0)+tx(2))/2} y={57} fontSize={7.5} fill="var(--text-subtle)" textAnchor="middle">0</text>
+        {/* 0 waiting 2→8 (served immediately) */}
+        <rect x={tx(2)} y={48} width={tx(8)-tx(2)} height={12} fill="var(--bg-elevated)" stroke="var(--border)" strokeWidth={0.8} rx={2} />
+        <text x={(tx(2)+tx(8))/2} y={57} fontSize={7.5} fill="var(--text-subtle)" textAnchor="middle">0</text>
+        {/* 1 waiting 8→10 */}
+        <rect x={tx(8)} y={48} width={tx(10)-tx(8)} height={12} fill="var(--warning)" opacity={0.22} stroke="var(--warning)" strokeWidth={0.8} rx={2} />
+        <text x={(tx(8)+tx(10))/2} y={57} fontSize={7.5} fill="var(--warning)" textAnchor="middle">1</text>
+        {/* 0 waiting 10→16 */}
+        <rect x={tx(10)} y={48} width={tx(16)-tx(10)} height={12} fill="var(--bg-elevated)" stroke="var(--border)" strokeWidth={0.8} rx={2} />
+        <text x={(tx(10)+tx(16))/2} y={57} fontSize={7.5} fill="var(--text-subtle)" textAnchor="middle">0</text>
+
+        {/* "Frozen" annotations between events */}
+        {[[2,8],[10,16]].map(([a,b],i) => (
+          <text key={i} x={(tx(a)+tx(b))/2} y={79} fontSize={8} fill="var(--text-subtle)" textAnchor="middle" fontStyle="italic">
+            ← clock frozen →
+          </text>
+        ))}
+
+        {/* Event ticks on time axis */}
         {events.map((ev, i) => {
-          const x = tx(ev.t) + (i === 1 ? 7 : 0);
+          const x = tx(ev.t) + (i===1 ? 4 : 0);
+          const above = i % 2 === 0;
           return (
             <g key={i}>
-              <line x1={x} y1={ev.above ? 44 : 58} x2={x} y2={ev.above ? 58 : 72} stroke={ev.color} strokeWidth={1.5} />
-              <circle cx={x} cy={58} r={5} fill={ev.color} />
-              <text x={x} y={ev.above ? 37 : 86} fontSize={8.5} fill={ev.color} textAnchor="middle">{ev.label}</text>
-              <text x={x} y={ev.above ? 27 : 97} fontSize={8} fill="var(--text-subtle)" textAnchor="middle">t={ev.t}</text>
+              <line x1={x} y1={H-20} x2={x} y2={above ? 90 : 95} stroke={ev.color} strokeWidth={1.5} />
+              <circle cx={x} cy={H-20} r={4.5} fill={ev.color} />
+              <text x={x} y={above ? 86 : 112} fontSize={8.5} fill={ev.color} textAnchor="middle">{ev.label}</text>
+              <text x={x} y={above ? 76 : 122} fontSize={8} fill="var(--text-subtle)" textAnchor="middle">t={ev.t}</text>
             </g>
           );
         })}
+
+        {/* time axis ticks */}
+        {[0,4,8,12,16,20].map(t => (
+          <g key={t}>
+            <line x1={tx(t)} y1={H-20} x2={tx(t)} y2={H-15} stroke="var(--border)" strokeWidth={1} />
+            <text x={tx(t)} y={H-6} fontSize={8.5} fill="var(--text-subtle)" textAnchor="middle">{t}</text>
+          </g>
+        ))}
       </svg>
     </div>
   );
 }
 
 function DistributionViz() {
-  const W = 500, H = 110, xMax = 20, mean = 5, lam = 1 / mean;
-  const tx = (x: number) => 48 + (x / xMax) * 418;
-  const ty = (y: number) => 95 - (y / (lam * 1.05)) * 82;
+  const W = 560, H = 160, xMax = 25, mean = 5, lam = 1 / mean;
+  const tx = (x: number) => 52 + (x / xMax) * 480;
+  const ty = (y: number) => 100 - (y / (lam * 1.08)) * 72;
   const pts: string[] = [];
-  for (let x = 0; x <= xMax; x += 0.4) pts.push(`${tx(x)},${ty(lam * Math.exp(-lam * x))}`);
+  for (let x = 0; x <= xMax; x += 0.3) pts.push(`${tx(x)},${ty(lam * Math.exp(-lam * x))}`);
   const curve = 'M' + pts.join(' L');
-  const fill  = curve + ` L${tx(xMax)},95 L${tx(0)},95 Z`;
+  const fill  = curve + ` L${tx(xMax)},100 L${tx(0)},100 Z`;
+
+  // Sample arrivals (exponential, seeded-ish)
+  const sampleInterarrivals = [1.2, 7.4, 2.1, 9.8, 0.5, 4.2, 3.7, 6.1];
+  const sampleTimes: number[] = [];
+  let t = 0;
+  for (const ia of sampleInterarrivals) {
+    t += ia;
+    if (t > xMax) break;
+    sampleTimes.push(t);
+  }
+
+  // Regular (uniform) arrivals at mean spacing
+  const regularTimes = [5, 10, 15, 20];
+
   return (
     <div style={vizBox}>
-      <div style={vizTitle}>Exponential interarrival times — mean = 5 min, rate λ = 0.2/min</div>
+      <div style={vizTitle}>Exponential vs deterministic interarrivals — exponential creates bursts and long gaps</div>
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H }}>
-        {[0, 5, 10, 15, 20].map(x => (
+        {/* Grid */}
+        {[0, 5, 10, 15, 20, 25].map(x => (
           <g key={x}>
-            <line x1={tx(x)} y1={12} x2={tx(x)} y2={95} stroke="var(--border)" strokeWidth={0.5} strokeDasharray="3,3" />
-            <text x={tx(x)} y={H - 2} fontSize={9} fill="var(--text-subtle)" textAnchor="middle">{x}</text>
+            <line x1={tx(x)} y1={16} x2={tx(x)} y2={100} stroke="var(--border)" strokeWidth={0.5} strokeDasharray="3,3" />
+            <text x={tx(x)} y={112} fontSize={8.5} fill="var(--text-subtle)" textAnchor="middle">{x}</text>
           </g>
         ))}
-        <line x1={48} y1={95} x2={W - 10} y2={95} stroke="var(--chart-axis,var(--border))" strokeWidth={1.5} />
-        <line x1={48} y1={10} x2={48}     y2={95} stroke="var(--chart-axis,var(--border))" strokeWidth={1.5} />
-        <path d={fill} fill="var(--primary)" opacity={0.12} />
-        <path d={curve} fill="none" stroke="var(--primary)" strokeWidth={2.5} />
-        <line x1={tx(mean)} y1={28} x2={tx(mean)} y2={95} stroke="var(--accent)" strokeWidth={1.5} strokeDasharray="4,3" />
-        <text x={tx(mean) + 5} y={42} fontSize={9} fill="var(--accent)">mean = 5</text>
-        <text x={tx(11)}     y={35} fontSize={9} fill="var(--primary-strong,var(--primary))">P(X ≥ t) = e^(−t/5)</text>
-        <text x={W - 14}    y={94} fontSize={9} fill="var(--text-subtle)">t</text>
-        <text x={30}        y={16} fontSize={9} fill="var(--text-subtle)">f(t)</text>
+        <line x1={52} y1={100} x2={W-10} y2={100} stroke="var(--border)" strokeWidth={1.5} />
+        <line x1={52} y1={14}  x2={52}   y2={100} stroke="var(--border)" strokeWidth={1.5} />
+
+        {/* PDF curve */}
+        <path d={fill} fill="var(--primary)" opacity={0.10} />
+        <path d={curve} fill="none" stroke="var(--primary)" strokeWidth={2.2} />
+        <line x1={tx(mean)} y1={28} x2={tx(mean)} y2={100} stroke="var(--accent)" strokeWidth={1.5} strokeDasharray="4,3" />
+        <text x={tx(mean)+5} y={38} fontSize={8.5} fill="var(--accent)">μ=5</text>
+
+        {/* Exponential sample ticks */}
+        <text x={44} y={125} fontSize={8} fill="var(--chart-1)" textAnchor="end">Exp</text>
+        {sampleTimes.map((st, i) => (
+          <g key={i}>
+            <line x1={tx(st)} y1={119} x2={tx(st)} y2={131} stroke="var(--chart-1)" strokeWidth={2} />
+            <circle cx={tx(st)} cy={125} r={3} fill="var(--chart-1)" />
+          </g>
+        ))}
+        <line x1={52} y1={125} x2={W-10} y2={125} stroke="var(--chart-1)" strokeWidth={0.8} opacity={0.4} />
+
+        {/* Regular sample ticks */}
+        <text x={44} y={145} fontSize={8} fill="var(--text-subtle)" textAnchor="end">Det</text>
+        {regularTimes.map((rt, i) => (
+          <g key={i}>
+            <line x1={tx(rt)} y1={139} x2={tx(rt)} y2={151} stroke="var(--text-subtle)" strokeWidth={2} />
+            <circle cx={tx(rt)} cy={145} r={3} fill="var(--text-subtle)" />
+          </g>
+        ))}
+        <line x1={52} y1={145} x2={W-10} y2={145} stroke="var(--text-subtle)" strokeWidth={0.8} opacity={0.4} />
+
+        <text x={W-8} y={99} fontSize={9} fill="var(--text-subtle)">t</text>
+        <text x={30}  y={18} fontSize={9} fill="var(--text-subtle)">f(t)</text>
+        <text x={300} y={48} fontSize={8.5} fill="var(--primary)">f(t) = λe^(−λt)</text>
       </svg>
     </div>
   );
 }
 
 function StabilityViz() {
-  const W = 500, H = 160, lqMax = 20;
-  const tx = (r: number) => 52 + r * 390;
-  const ty = (lq: number) => 138 - Math.min(lq / lqMax, 1) * 118;
+  const W = 560, H = 190, lqMax = 20;
+  const tx = (r: number) => 52 + r * 460;
+  const ty = (lq: number) => 158 - Math.min(lq / lqMax, 1) * 130;
   const pts: string[] = [];
-  for (let r = 0; r <= 0.972; r += 0.008) pts.push(`${tx(r)},${ty(r * r / (1 - r))}`);
+  for (let r = 0; r <= 0.975; r += 0.005) pts.push(`${tx(r)},${ty(r * r / (1 - r))}`);
   const curve = 'M' + pts.join(' L');
-  const kp = [{ r: 0.5, lq: 0.5 }, { r: 0.8, lq: 3.2 }, { r: 0.9, lq: 8.1 }];
+
+  // Color zones
+  const zones = [
+    { from: 0,    to: 0.6, color: 'var(--success)', label: 'Healthy',  opacity: 0.10 },
+    { from: 0.6,  to: 0.8, color: 'var(--warning)', label: 'Moderate', opacity: 0.12 },
+    { from: 0.8,  to: 0.9, color: 'var(--error)',   label: 'High',     opacity: 0.10 },
+    { from: 0.9,  to: 1.0, color: 'var(--error)',   label: 'Critical', opacity: 0.18 },
+  ];
+  const kp = [
+    { r: 0.5, lq: 0.5,  col: 'var(--success)' },
+    { r: 0.7, lq: 1.63, col: 'var(--warning)' },
+    { r: 0.85,lq: 4.82, col: 'var(--error)'   },
+  ];
+  const yAxis = 158;
   return (
     <div style={vizBox}>
-      <div style={vizTitle}>M/M/1 steady state — Lq = ρ²/(1−ρ) explodes as utilisation approaches 100%</div>
+      <div style={vizTitle}>M/M/1 queue length — Lq = ρ²/(1−ρ) explodes as utilisation approaches 100%</div>
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H }}>
+        {/* Zone bands */}
+        {zones.map(z => (
+          <rect key={z.from}
+            x={tx(z.from)} y={28}
+            width={tx(z.to)-tx(z.from)} height={yAxis-28}
+            fill={z.color} opacity={z.opacity}
+          />
+        ))}
+        {/* Zone labels at top */}
+        {zones.map(z => (
+          <text key={z.from}
+            x={(tx(z.from)+tx(z.to))/2} y={40}
+            fontSize={8} fill={z.color} textAnchor="middle" fontWeight={650}
+          >{z.label}</text>
+        ))}
+
+        {/* Grid */}
         {[0, 0.2, 0.4, 0.6, 0.8, 1.0].map(r => (
           <g key={r}>
-            <line x1={tx(r)} y1={18} x2={tx(r)} y2={138} stroke="var(--border)" strokeWidth={0.5} />
-            <text x={tx(r)} y={H - 4} fontSize={8.5} fill="var(--text-subtle)" textAnchor="middle">{r.toFixed(1)}</text>
+            <line x1={tx(r)} y1={28} x2={tx(r)} y2={yAxis} stroke="var(--border)" strokeWidth={0.5} />
+            <text x={tx(r)} y={H-6} fontSize={8.5} fill="var(--text-subtle)" textAnchor="middle">{r.toFixed(1)}</text>
           </g>
         ))}
         {[0, 5, 10, 15, 20].map(lq => (
           <g key={lq}>
-            <line x1={52} y1={ty(lq)} x2={442} y2={ty(lq)} stroke="var(--border)" strokeWidth={0.5} />
-            <text x={46} y={ty(lq) + 4} fontSize={8.5} fill="var(--text-subtle)" textAnchor="end">{lq}</text>
+            <line x1={52} y1={ty(lq)} x2={W-20} y2={ty(lq)} stroke="var(--border)" strokeWidth={0.5} />
+            <text x={46} y={ty(lq)+4} fontSize={8.5} fill="var(--text-subtle)" textAnchor="end">{lq}</text>
           </g>
         ))}
-        <rect x={tx(1.0) - 54} y={18} width={54} height={120} fill="var(--error)" opacity={0.07} />
-        <text x={tx(0.985)} y={30} fontSize={8} fill="var(--error)" textAnchor="end">unstable</text>
-        <line x1={52} y1={138} x2={445} y2={138} stroke="var(--border)" strokeWidth={1.5} />
-        <line x1={52} y1={18}  x2={52}  y2={138} stroke="var(--border)" strokeWidth={1.5} />
-        <path d={curve} fill="none" stroke="var(--chart-2,var(--accent))" strokeWidth={2.5} />
-        {kp.map(({ r, lq }) => {
+
+        {/* Axes */}
+        <line x1={52} y1={yAxis} x2={W-18} y2={yAxis} stroke="var(--text-subtle)" strokeWidth={1.5} />
+        <line x1={52} y1={26}   x2={52}    y2={yAxis} stroke="var(--text-subtle)" strokeWidth={1.5} />
+
+        {/* Curve */}
+        <path d={curve} fill="none" stroke="var(--primary)" strokeWidth={2.8} />
+
+        {/* Key points */}
+        {kp.map(({ r, lq, col }) => {
           const x = tx(r), y = ty(lq);
           return (
             <g key={r}>
-              <circle cx={x} cy={y} r={4} fill="var(--chart-2,var(--accent))" />
-              <line x1={x} y1={y - 5} x2={x} y2={y - 20} stroke="var(--chart-2,var(--accent))" strokeWidth={1} strokeDasharray="2,2" />
-              <text x={x} y={y - 23} fontSize={8} fill="var(--chart-2,var(--accent))" textAnchor="middle">ρ={r}</text>
-              <text x={x} y={y - 13} fontSize={8} fill="var(--chart-2,var(--accent))" textAnchor="middle">Lq={lq}</text>
+              <circle cx={x} cy={y} r={5} fill={col} stroke="var(--bg-elevated)" strokeWidth={1.5} />
+              <text x={x+8} y={y-6}  fontSize={8.5} fill={col} fontWeight={650}>ρ={r}</text>
+              <text x={x+8} y={y+5}  fontSize={8.5} fill={col}>Lq={lq}</text>
             </g>
           );
         })}
-        <text x={447} y={137} fontSize={9} fill="var(--text-subtle)">ρ</text>
-        <text x={36}  y={18}  fontSize={9} fill="var(--text-subtle)">Lq</text>
+
+        {/* Unstable label */}
+        <text x={tx(0.975)} y={52} fontSize={8} fill="var(--error)" textAnchor="end">↑ unstable</text>
+
+        {/* Axis labels */}
+        <text x={W-16} y={yAxis-2} fontSize={9} fill="var(--text-subtle)">ρ</text>
+        <text x={30}   y={28}      fontSize={9} fill="var(--text-subtle)">Lq</text>
       </svg>
     </div>
   );
 }
 
 function EntityLifecycleViz() {
-  const steps = [
-    { label: 'Arrival',   sub: 'entity born',       color: 'var(--chart-1)' },
-    { label: 'Queue',     sub: 'waiting…',          color: 'var(--warning)' },
-    { label: 'Svc Start', sub: 'server claimed',     color: 'var(--success)' },
-    { label: 'Svc End',   sub: 'server released',    color: 'var(--accent)'  },
-    { label: 'Departure', sub: 'entity leaves',      color: 'var(--error)'   },
-  ];
+  const W = 560, H = 155, tMax = 20;
+  const tx = (t: number) => 52 + (t / tMax) * 476;
+  // Entity timeline: arrived t=2, service t=6, departure t=14
+  const tArr = 2, tSvcStart = 6, tSvcEnd = 14, tDep = 14;
   return (
     <div style={vizBox}>
-      <div style={vizTitle}>Entity lifecycle — 5 event kinds per entity</div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, overflowX: 'auto', paddingBottom: 2 }}>
-        {steps.map((s, i) => (
-          <React.Fragment key={i}>
-            <div style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-              padding: '6px 10px', borderRadius: 6, minWidth: 70, flexShrink: 0,
-              background: `color-mix(in srgb, ${s.color} 14%, var(--bg-elevated))`,
-              border: `1px solid color-mix(in srgb, ${s.color} 38%, transparent)`,
-            }}>
-              <span style={{ fontSize: 11, fontWeight: 650, color: s.color, whiteSpace: 'nowrap' }}>{s.label}</span>
-              <span style={{ fontSize: 9, color: 'var(--text-subtle)', textAlign: 'center' }}>{s.sub}</span>
-            </div>
-            {i < steps.length - 1 && <span style={{ color: 'var(--text-subtle)', fontSize: 16, flexShrink: 0 }}>→</span>}
-          </React.Fragment>
+      <div style={vizTitle}>Entity lifecycle — queue wait (Wq) + service time = sojourn time (W)</div>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H }}>
+        {/* Time axis */}
+        <line x1={52} y1={H-20} x2={W-10} y2={H-20} stroke="var(--border)" strokeWidth={1.5} />
+        {[0,4,8,12,16,20].map(t => (
+          <g key={t}>
+            <line x1={tx(t)} y1={H-20} x2={tx(t)} y2={H-15} stroke="var(--border)" strokeWidth={1} />
+            <text x={tx(t)} y={H-6} fontSize={8.5} fill="var(--text-subtle)" textAnchor="middle">{t}</text>
+          </g>
         ))}
-      </div>
-      <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-subtle)', fontFamily: 'var(--font-mono)' }}>
-        Wq = Σ queue waits per station &nbsp;·&nbsp; W = departure − arrival &nbsp;·&nbsp; Wq ≤ W always
-      </div>
+        <text x={W-8} y={H-16} fontSize={9} fill="var(--text-subtle)">t</text>
+
+        {/* Queue wait bar: tArr → tSvcStart */}
+        <rect x={tx(tArr)} y={56} width={tx(tSvcStart)-tx(tArr)} height={18}
+          fill="var(--warning)" opacity={0.3} rx={3} />
+        <text x={(tx(tArr)+tx(tSvcStart))/2} y={68} fontSize={9} fill="var(--warning)" textAnchor="middle" fontWeight={650}>
+          waiting in queue
+        </text>
+
+        {/* Service bar: tSvcStart → tSvcEnd */}
+        <rect x={tx(tSvcStart)} y={56} width={tx(tSvcEnd)-tx(tSvcStart)} height={18}
+          fill="var(--success)" opacity={0.3} rx={3} />
+        <text x={(tx(tSvcStart)+tx(tSvcEnd))/2} y={68} fontSize={9} fill="var(--success)" textAnchor="middle" fontWeight={650}>
+          in service
+        </text>
+
+        {/* Wq bracket */}
+        <line x1={tx(tArr)} y1={88} x2={tx(tSvcStart)} y2={88} stroke="var(--warning)" strokeWidth={1.5} />
+        <line x1={tx(tArr)} y1={85} x2={tx(tArr)} y2={91} stroke="var(--warning)" strokeWidth={1.5} />
+        <line x1={tx(tSvcStart)} y1={85} x2={tx(tSvcStart)} y2={91} stroke="var(--warning)" strokeWidth={1.5} />
+        <text x={(tx(tArr)+tx(tSvcStart))/2} y={100} fontSize={9.5} fill="var(--warning)" textAnchor="middle" fontWeight={650}>
+          Wq = 4 min
+        </text>
+
+        {/* W bracket */}
+        <line x1={tx(tArr)} y1={112} x2={tx(tDep)} y2={112} stroke="var(--primary)" strokeWidth={1.5} />
+        <line x1={tx(tArr)} y1={109} x2={tx(tArr)} y2={115} stroke="var(--primary)" strokeWidth={1.5} />
+        <line x1={tx(tDep)} y1={109} x2={tx(tDep)} y2={115} stroke="var(--primary)" strokeWidth={1.5} />
+        <text x={(tx(tArr)+tx(tDep))/2} y={126} fontSize={9.5} fill="var(--primary)" textAnchor="middle" fontWeight={650}>
+          W = 12 min (sojourn)
+        </text>
+
+        {/* Event markers */}
+        {[
+          { t: tArr,      label: 'Arrival',    color: 'var(--chart-1)' },
+          { t: tSvcStart, label: 'Svc Start',  color: 'var(--success)' },
+          { t: tDep,      label: 'Departure',  color: 'var(--error)'   },
+        ].map((ev, i) => (
+          <g key={i}>
+            <circle cx={tx(ev.t)} cy={65} r={5} fill={ev.color} stroke="var(--bg-elevated)" strokeWidth={1} />
+            <line x1={tx(ev.t)} y1={56} x2={tx(ev.t)} y2={H-20} stroke={ev.color} strokeWidth={1} strokeDasharray="3,3" opacity={0.5} />
+            <text x={tx(ev.t)} y={48} fontSize={8.5} fill={ev.color} textAnchor="middle">{ev.label}</text>
+            <text x={tx(ev.t)} y={38} fontSize={8} fill="var(--text-subtle)" textAnchor="middle">t={ev.t}</text>
+          </g>
+        ))}
+      </svg>
     </div>
   );
 }
@@ -536,7 +695,11 @@ function ExamplesTab({ onLoad, highlightedId }: { onLoad: (ex: ExampleModel) => 
 
 // ── Challenges tab ────────────────────────────────────────────────────────────
 
-function ChallengesTab() {
+function ChallengesTab({
+  onLoadExample,
+}: {
+  onLoadExample: (ex: ExampleModel) => void;
+}) {
   const [completed, setCompleted] = useState<Set<string>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem('des-challenges') ?? '[]')); }
     catch { return new Set(); }
@@ -763,6 +926,42 @@ function ChallengesTab() {
                   )}
                 </div>
               )}
+
+              {/* Related example card */}
+              {ch.exampleId && (() => {
+                const relEx = EXAMPLES.find(e => e.id === ch.exampleId);
+                if (!relEx) return null;
+                return (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px',
+                    background: 'color-mix(in srgb, var(--accent) 7%, var(--bg-sunken))',
+                    border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)',
+                    borderRadius: 'var(--radius-sm)',
+                  }}>
+                    <FlaskConical size={16} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 11, fontWeight: 650, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--accent)', marginBottom: 2 }}>
+                        Related example
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <Badge text={relEx.badge} color="var(--accent)" />
+                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{relEx.name}</span>
+                      </div>
+                      <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                        {relEx.description}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => onLoadExample(relEx)}
+                      className="ui-btn ui-btn--primary"
+                      style={{ flexShrink: 0, fontSize: 12 }}
+                      title="Load this example into the Model Explorer"
+                    >
+                      <ExternalLink size={12} /> Load in Editor
+                    </button>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         );
@@ -836,7 +1035,7 @@ export default function Theory({ onLoadExample, initialSection = 'lessons' }: Th
 
       {section === 'lessons'    && <LessonsTab onGoToExample={goToExample} />}
       {section === 'examples'   && <ExamplesTab onLoad={handleLoadExample} highlightedId={highlightedExampleId} />}
-      {section === 'challenges' && <ChallengesTab />}
+      {section === 'challenges' && <ChallengesTab onLoadExample={handleLoadExample} />}
     </div>
   );
 }

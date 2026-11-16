@@ -267,6 +267,7 @@ export interface Challenge {
   options: ChallengeOption[];
   hints: string[];
   explanation: string;
+  exampleId?: string;   // related ExampleModel id
 }
 
 export const CHALLENGES: Challenge[] = [
@@ -286,7 +287,8 @@ export const CHALLENGES: Challenge[] = [
       'λ = 1 / 5 = 0.2 arrivals/min. Now convert mean service time 4 min to service rate μ.',
       'μ = 1 / 4 = 0.25 services/min. ρ = λ/μ = 0.2 / 0.25 = ?',
     ],
-    explanation: 'ρ = λ/μ = 0.2 / 0.25 = 0.8. At 80% utilisation this M/M/1 queue has theory Wq = ρ / (μ − λ) = 0.8 / 0.05 = 16 min. Load the M/M/1 example and verify this in the Model Explorer.',
+    explanation: 'ρ = λ/μ = 0.2 / 0.25 = 0.8. At 80% utilisation this M/M/1 queue has theory Wq = ρ / (μ − λ) = 0.8 / 0.05 = 16 min. Load the M/M/1 example below and verify this in the Model Explorer.',
+    exampleId: 'mm1',
   },
   {
     id: 'ch2',
@@ -304,7 +306,8 @@ export const CHALLENGES: Challenge[] = [
       'μ = 1 / 4 min = 0.25 per minute. For stability: λ < c · μ. With c = 1: is 1/3 < 0.25?',
       '1/3 ≈ 0.333 > 0.25. ρ = λ/(c·μ) = 0.333/0.25 = 1.33 ≥ 1 — unstable. Queue grows indefinitely.',
     ],
-    explanation: 'ρ = 1.33 ≥ 1: no finite steady-state queue length. Adding a second agent gives ρ = 0.333 / (2 × 0.25) = 0.667 — stable and much shorter waits. Load the "Help Desk" example in the Model Explorer palette to explore this.',
+    explanation: 'ρ = 1.33 ≥ 1: no finite steady-state queue length. Adding a second agent gives ρ = 0.333 / (2 × 0.25) = 0.667 — stable and much shorter waits. Load the M/M/1 example below, raise the arrival rate above the service rate, and watch the queue grow without bound.',
+    exampleId: 'mm1',
   },
   {
     id: 'ch3',
@@ -322,7 +325,8 @@ export const CHALLENGES: Challenge[] = [
       'λ_eff = 0.18/min, W = 8.5 min. Multiply them.',
       'L = 0.18 × 8.5 = 1.53. This means on average 1.53 entities are present in the system at any instant.',
     ],
-    explanation: "L = λW = 0.18 × 8.5 = 1.53. Little's Law is universal — it holds for any stable queue regardless of arrival process, service distribution or number of servers. Use it to cross-check simulation outputs: if Lq ≠ λ · Wq within sampling error, there is a metric definition mismatch.",
+    explanation: "L = λW = 0.18 × 8.5 = 1.53. Little's Law is universal — it holds for any stable queue regardless of arrival process, service distribution or number of servers. Load the M/M/1 example and check that Lq ≈ λ × Wq in the simulation output.",
+    exampleId: 'mm1',
   },
   {
     id: 'ch4',
@@ -340,7 +344,8 @@ export const CHALLENGES: Challenge[] = [
       'M/M/1: ρ = 0.4 / (1 × 0.5) = 0.8. M/M/2: ρ = 0.4 / (2 × 0.5) = 0.4.',
       'ρ halves. But the reduction in Wq is dramatic: M/M/1 Wq ≈ 6.4 min vs M/M/2 Wq ≈ 0.3 min — a 20× improvement.',
     ],
-    explanation: 'ρ = λ/(c·μ) = 0.4/(2×0.5) = 0.4. Utilisation per server halves. Due to the nonlinear queue-length formula, Wq drops far more than proportionally. Load the M/M/2 example, then compare with M/M/1 using Scenario Comparison.',
+    explanation: 'ρ = λ/(c·μ) = 0.4/(2×0.5) = 0.4. Utilisation per server halves. Due to the nonlinear queue-length formula, Wq drops far more than proportionally. Load the M/M/2 example below and compare it with M/M/1 using the Scenario Comparison tool.',
+    exampleId: 'mm2',
   },
   {
     id: 'ch5',
@@ -358,6 +363,7 @@ export const CHALLENGES: Challenge[] = [
       'Early entities see no queue at all — they are served immediately. Does that reflect steady-state behaviour?',
       'Excluding the first W minutes means the metrics only average over observations from a system already operating at near-steady state.',
     ],
-    explanation: 'At t = 0, the queue is empty regardless of the true steady-state load. Early entities experience artificially short waits, biasing Wq and W downward. Excluding a warm-up period (typically 10–20% of the horizon) removes this cold-start effect. The warm-up length should grow with ρ — heavily loaded systems take longer to reach equilibrium.',
+    explanation: 'At t = 0, the queue is empty regardless of the true steady-state load. Early entities experience artificially short waits, biasing Wq and W downward. Excluding a warm-up period (typically 10–20% of the horizon) removes this cold-start effect. Load the M/M/1 example and try setting warm-up to 0 vs 200 — compare the resulting Wq values.',
+    exampleId: 'mm1',
   },
 ];

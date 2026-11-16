@@ -8,6 +8,7 @@ import {
   Share2,
   BookOpen,
   Trophy,
+  FlaskConical,
   Sun,
   Moon,
   PanelLeftClose,
@@ -17,7 +18,7 @@ import { Node, Edge } from '@xyflow/react';
 import { NodeData } from './types';
 import { RunConfig } from './lib/engine';
 
-type TabId = 'theory' | 'challenges' | 'playground' | 'editor';
+type TabId = 'theory' | 'examples' | 'challenges' | 'playground' | 'editor';
 type Theme = 'light' | 'dark';
 
 interface NavItemProps {
@@ -43,15 +44,17 @@ function NavItem({ icon, label, active, collapsed, onClick }: NavItemProps) {
 }
 
 const NAV_ITEMS: { id: TabId; label: string; icon: React.ReactNode }[] = [
-  { id: 'theory',     label: 'Theory',          icon: <BookOpen size={18} /> },
-  { id: 'challenges', label: 'Challenges',       icon: <Trophy size={18} /> },
-  { id: 'playground', label: 'M/M/c Visualizer', icon: <LayoutDashboard size={18} /> },
-  { id: 'editor',     label: 'Model Explorer',   icon: <Share2 size={18} /> },
+  { id: 'theory',     label: 'Lessons',           icon: <BookOpen size={18} /> },
+  { id: 'examples',   label: 'Examples',          icon: <FlaskConical size={18} /> },
+  { id: 'challenges', label: 'Challenges',        icon: <Trophy size={18} /> },
+  { id: 'playground', label: 'M/M/c Visualizer',  icon: <LayoutDashboard size={18} /> },
+  { id: 'editor',     label: 'Model Explorer',    icon: <Share2 size={18} /> },
 ];
 
 const TAB_TITLES: Record<TabId, { title: string; subtitle: string }> = {
-  theory:     { title: 'Theory',           subtitle: 'DES concepts and queueing fundamentals' },
-  challenges: { title: 'Challenges',       subtitle: 'Test your DES knowledge with assessed problems' },
+  theory:     { title: 'Lessons',          subtitle: 'DES concepts and queueing fundamentals' },
+  examples:   { title: 'Examples',         subtitle: '5 pre-built models illustrating key queueing concepts' },
+  challenges: { title: 'Challenges',       subtitle: 'Test your DES knowledge — 5 assessed problems' },
   playground: { title: 'M/M/c Visualizer', subtitle: 'Interactive simulation with live charts' },
   editor:     { title: 'Model Explorer',   subtitle: 'Build, run and export DES models' },
 };
@@ -186,11 +189,15 @@ function App() {
         </div>
 
         <main className="app-content" id="main-content">
-          {(activeTab === 'theory' || activeTab === 'challenges') && (
+          {(activeTab === 'theory' || activeTab === 'examples' || activeTab === 'challenges') && (
             <Theory
               key={activeTab}
               onLoadExample={handleLoadExample}
-              initialSection={activeTab === 'challenges' ? 'challenges' : 'lessons'}
+              initialSection={
+                activeTab === 'challenges' ? 'challenges'
+                : activeTab === 'examples'  ? 'examples'
+                : 'lessons'
+              }
             />
           )}
           {activeTab === 'playground' && <Simulator />}

@@ -1,5 +1,4 @@
 // DES model validator — structural, parameter and feasibility checks.
-// PLAN.md §2.3
 
 import {
   DesModel, DesNode, Distribution,

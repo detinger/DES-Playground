@@ -20,10 +20,12 @@ import { NodeData, DistributionType, DistributionParams } from '../types';
 import {
   PlayCircle, Server, LogOut, Settings, Play, Pause, RotateCcw,
   BarChart3, ShieldCheck, ChevronRight, ChevronLeft, ChevronsRight, ChevronsLeft,
-  Flag, Layers, GitCompare,
+  Flag, Layers, GitCompare, Code2,
 } from 'lucide-react';
 import { LineChart, BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { cn } from '../lib/utils';
+import CodeExport from './CodeExport';
+import SimmerCodeExport from './SimmerCodeExport';
 import ValidationPanel from './ValidationPanel';
 import EventLog from './EventLog';
 import ReplicationsPanel from './ReplicationsPanel';
@@ -80,6 +82,7 @@ export default function Editor({ nodes, setNodes, edges, setEdges, exampleConfig
   const [lastCompiledModel, setLastCompiledModel] = useState<import('../lib/model').DesModel | null>(null);
   const [baseline, setBaseline]       = useState<Scenario | null>(null);
   const [alternative, setAlternative] = useState<Scenario | null>(null);
+  const [showExport, setShowExport]   = useState(false);
 
   const HELP_DESK: { nodes: any[]; edges: any[] } = {
     nodes: [
@@ -542,6 +545,15 @@ export default function Editor({ nodes, setNodes, edges, setEdges, exampleConfig
               </span>
             )}
           </>)}
+          <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 2px' }} />
+          <button
+            onClick={() => setShowExport(s => !s)}
+            className="ui-btn"
+            title="Toggle Python / R code export"
+            style={showExport ? { background: 'var(--primary)', borderColor: 'var(--primary)', color: 'var(--text-on-primary)' } : {}}
+          >
+            <Code2 size={14} /> {showExport ? 'Hide Export' : 'Export Code'}
+          </button>
         </div>
       </div>
 
@@ -1012,6 +1024,13 @@ export default function Editor({ nodes, setNodes, edges, setEdges, exampleConfig
             onLoadBaseline={() => loadScenario(baseline)}
             onLoadAlternative={() => loadScenario(alternative)}
           />
+        )}
+
+        {showExport && lastCompiledModel && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginTop: 8 }}>
+            <CodeExport model={lastCompiledModel} config={runConfig} />
+            <SimmerCodeExport model={lastCompiledModel} config={runConfig} />
+          </div>
         )}
 
       </div>

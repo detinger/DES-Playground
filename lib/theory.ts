@@ -1,5 +1,4 @@
 // M/M/c queueing theory — Erlang-C formula and steady-state metrics.
-// PLAN.md §2.5 M/M/1 and M/M/c reference benchmarks.
 
 import { DesModel } from './model';
 
